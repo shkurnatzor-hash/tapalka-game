@@ -1,0 +1,1096 @@
+/* ============================================================
+   style.css — PRODUCTION FIXED VERSION v5
+   CHANGES v5:
+   - #characterWrapper: transform берётся из CSS-var --char-scale (не из JS)
+   - will-change: transform для GPU-ускорения
+   - tap-anim: keyframes теперь работают с CSS-переменной
+   - translate3d вместо translateX для лучшего GPU compositing
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+
+/* ============================================================
+   CSS THEME VARIABLES
+   ============================================================ */
+
+:root {
+  --game-width: 420px;
+  --menu-h: 100px;
+
+  --green-dark:   #142e17;
+  --green-base:   #1e5c24;
+  --green-mid:    #27792e;
+  --green-light:  #3da64b;
+  --green-glow:   #50d460;
+  --green-hover:  #2e8c34;
+
+  --gold:         #f5c842;
+  --gold-dark:    #c49b1a;
+
+  --white:        #fff;
+  --text-dim:     rgba(255,255,255,.7);
+}
+
+/* Дефолтные theme-переменные (зелёная тема) */
+#gameWrap {
+  --t-menu-bg:          #142e17;
+  --t-menu-border:      rgba(255,255,255,.06);
+  --t-btn-bg:           #142e17;
+  --t-btn-hover:        #2e8c34;
+  --t-btn-active-from:  #3da64b;
+  --t-btn-active-to:    #50d460;
+  --t-btn-active-glow:  rgba(80,212,96,.45);
+  --t-upgrade-from:     #3da64b;
+  --t-upgrade-to:       #50d460;
+  --t-upgrade-glow:     rgba(61,166,75,.5);
+  --t-accent:           #50d460;
+  --t-tab-active-from:  #27792e;
+  --t-tab-active-to:    #3da64b;
+  --t-counter-color:    #4cff61;
+  --t-counter-shadow:   rgba(76,255,97,.6);
+  --t-coinburst-color:  #00ff6a;
+  --t-coinburst-shadow: rgba(0,255,106,.5);
+}
+
+/* ── КРАСНАЯ ТЕМА (demomaks) ── */
+#gameWrap[data-theme="red"] {
+  --t-menu-bg:          #2a0808;
+  --t-menu-border:      rgba(255,60,40,.15);
+  --t-btn-bg:           #2a0808;
+  --t-btn-hover:        #5a1010;
+  --t-btn-active-from:  #8b1a1a;
+  --t-btn-active-to:    #e74c3c;
+  --t-btn-active-glow:  rgba(231,76,60,.5);
+  --t-upgrade-from:     #8b1a1a;
+  --t-upgrade-to:       #e74c3c;
+  --t-upgrade-glow:     rgba(180,30,30,.5);
+  --t-accent:           #e74c3c;
+  --t-tab-active-from:  #6b1414;
+  --t-tab-active-to:    #c0392b;
+  --t-counter-color:    #ff5c5c;
+  --t-counter-shadow:   rgba(255,80,80,.6);
+  --t-coinburst-color:  #ffcf33;
+  --t-coinburst-shadow: rgba(255,120,0,.7);
+}
+
+/* ── КОРИЧНЕВАЯ ТЕМА (kotomaks) ── */
+#gameWrap[data-theme="brown"] {
+  --t-menu-bg:          #2a1a08;
+  --t-menu-border:      rgba(200,150,80,.15);
+  --t-btn-bg:           #2a1a08;
+  --t-btn-hover:        #5a3a18;
+  --t-btn-active-from:  #7a5233;
+  --t-btn-active-to:    #c9956c;
+  --t-btn-active-glow:  rgba(180,130,80,.45);
+  --t-upgrade-from:     #7a5233;
+  --t-upgrade-to:       #c9956c;
+  --t-upgrade-glow:     rgba(140,100,60,.5);
+  --t-accent:           #d4a97a;
+  --t-tab-active-from:  #5a3a18;
+  --t-tab-active-to:    #a07040;
+  --t-counter-color:    #e6d2a2;
+  --t-counter-shadow:   rgba(230,210,162,.5);
+  --t-coinburst-color:  #e6d2a2;
+  --t-coinburst-shadow: rgba(200,180,120,.6);
+}
+
+/* ── ОРАНЖЕВАЯ ТЕМА (Таджик) ── */
+#gameWrap[data-theme="orange"] {
+  --t-menu-bg:          #1a0d00;
+  --t-menu-border:      rgba(255,140,0,.18);
+  --t-btn-bg:           #1a0d00;
+  --t-btn-hover:        #5a2e00;
+  --t-btn-active-from:  #c04a00;
+  --t-btn-active-to:    #ff6a00;
+  --t-btn-active-glow:  rgba(255,106,0,.5);
+  --t-upgrade-from:     #c04a00;
+  --t-upgrade-to:       #ff6a00;
+  --t-upgrade-glow:     rgba(200,80,0,.5);
+  --t-accent:           #ff7c1a;
+  --t-tab-active-from:  #8b3300;
+  --t-tab-active-to:    #d45a00;
+  --t-counter-color:    #ff8c00;
+  --t-counter-shadow:   rgba(255,140,0,.6);
+  --t-coinburst-color:  #ff8c00;
+  --t-coinburst-shadow: rgba(255,120,0,.7);
+}
+
+/* ── СЕРАЯ ТЕМА (Сайгак) ── */
+#gameWrap[data-theme="grey"] {
+  --t-menu-bg:          #2a2a2a;
+  --t-menu-border:      rgba(200,200,200,.12);
+  --t-btn-bg:           #2a2a2a;
+  --t-btn-hover:        #4a4a4a;
+  --t-btn-active-from:  #555555;
+  --t-btn-active-to:    #888888;
+  --t-btn-active-glow:  rgba(150,150,150,.4);
+  --t-upgrade-from:     #555555;
+  --t-upgrade-to:       #888888;
+  --t-upgrade-glow:     rgba(120,120,120,.4);
+  --t-accent:           #aaaaaa;
+  --t-tab-active-from:  #444444;
+  --t-tab-active-to:    #777777;
+  --t-counter-color:    #888888;
+  --t-counter-shadow:   rgba(100,100,100,.5);
+  --t-coinburst-color:  #cccccc;
+  --t-coinburst-shadow: rgba(150,150,150,.5);
+}
+
+/* ── ТЁМНО-СЕРАЯ ТЕМА (Бородач) ── */
+#gameWrap[data-theme="darkgrey"] {
+  --t-menu-bg:          #111111;
+  --t-menu-border:      rgba(100,100,100,.15);
+  --t-btn-bg:           #111111;
+  --t-btn-hover:        #2a2a2a;
+  --t-btn-active-from:  #222222;
+  --t-btn-active-to:    #444444;
+  --t-btn-active-glow:  rgba(80,80,80,.4);
+  --t-upgrade-from:     #222222;
+  --t-upgrade-to:       #444444;
+  --t-upgrade-glow:     rgba(60,60,60,.4);
+  --t-accent:           #666666;
+  --t-tab-active-from:  #1a1a1a;
+  --t-tab-active-to:    #333333;
+  --t-counter-color:    #111111;
+  --t-counter-shadow:   rgba(0,0,0,.8);
+  --t-coinburst-color:  #333333;
+  --t-coinburst-shadow: rgba(0,0,0,.6);
+}
+
+/* ── РАСТА ТЕМА (Растамакс) ── */
+#gameWrap[data-theme="rasta"] {
+  --t-menu-bg:          #0a0a0a;
+  --t-menu-border:      rgba(255,215,0,.15);
+  --t-btn-bg:           #0a0a0a;
+  --t-btn-hover:        #1a1a1a;
+  --t-btn-active-from:  #a08000;
+  --t-btn-active-to:    #ffd700;
+  --t-btn-active-glow:  rgba(255,215,0,.5);
+  --t-upgrade-from:     #1a6e1a;
+  --t-upgrade-to:       #2ecc2e;
+  --t-upgrade-glow:     rgba(46,204,46,.5);
+  --t-accent:           #ffd700;
+  --t-tab-active-from:  #1a6e1a;
+  --t-tab-active-to:    #2ecc2e;
+  --t-counter-color:    #2ecc2e;
+  --t-counter-shadow:   rgba(46,204,46,.6);
+  /* coinburst-color для Растамакса задаётся рандомно в JS, этот var не используется */
+  --t-coinburst-color:  #2ecc2e;
+  --t-coinburst-shadow: rgba(0,200,0,.6);
+}
+
+
+/* RESET */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  height: -webkit-fill-available;
+  overflow: hidden;
+  font-family: 'Nunito', Arial, sans-serif;
+  user-select: none;
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+  overscroll-behavior: none;
+  background:
+    url("./assets/images/background.jpg")
+    center center / cover no-repeat fixed;
+}
+
+/* ============================================================
+   DESKTOP FRAME
+   ============================================================ */
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: -2;
+}
+
+/* ============================================================
+   GAME WRAP
+   ============================================================ */
+
+#gameWrap {
+  position: relative;
+  width: 100%;
+  max-width: var(--game-width);
+  height: 100vh;
+  height: -webkit-fill-available;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-image: url("./assets/images/background.jpg");
+  box-shadow:
+    0 0 60px rgba(0,0,0,.8),
+    inset 0 0 0 1px rgba(255,255,255,.06);
+  border-left: 1px solid rgba(255,255,255,.06);
+  border-right: 1px solid rgba(255,255,255,.06);
+  transition: background-image 0s;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+#gameWrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.18);
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (min-width: 768px) {
+  #gameWrap {
+    height: 95vh;
+    margin-bottom: 10px;
+    border-radius: 24px;
+  }
+}
+
+/* ============================================================
+   LOADER
+   ============================================================ */
+
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  transition: opacity .5s ease;
+}
+
+#loader video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@media (min-width: 768px) {
+  #loader video {
+    width: auto;
+    height: 100%;
+    max-width: 420px;
+  }
+}
+
+.loader--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ============================================================
+   COUNTER
+   ============================================================ */
+
+#counter {
+  position: absolute;
+  left: 50%;
+  top: 90px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 200;
+  pointer-events: none;
+}
+
+#counterNumber {
+  font-size: clamp(28px, 7vw, 44px);
+  font-weight: 900;
+  color: var(--t-counter-color, #4cff61);
+  letter-spacing: -1px;
+  text-shadow:
+    0 0 20px var(--t-counter-shadow, rgba(76,255,97,.6)),
+    0 2px 8px rgba(0,0,0,.6);
+  transition: color .3s ease, text-shadow .3s ease;
+}
+
+#counterImg {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  animation: spinCoin 3s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(255,215,0,.8));
+}
+
+/* ============================================================
+   CHARACTER
+   ============================================================ */
+
+#characterWrapper {
+  position: absolute;
+  left: 50%;
+  /* bottom управляется через JS (calc с bottomOffset из character) */
+  bottom: calc(var(--menu-h) + 24px);
+  /*
+   * ✅ FIX v5: transform теперь читает CSS-переменную --char-scale
+   * JS выставляет только --char-scale через style.setProperty, не трогает transform напрямую
+   * (кроме первичного renderCharacter для совместимости)
+   * Это позволяет keyframes анимации корректно интерполировать от --char-scale
+   */
+  transform: translateX(-50%) scale(var(--char-scale, 1));
+  transform-origin: bottom center;
+  width: 90%;
+  max-width: 300px;
+  height: 48vh;
+  max-height: 400px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+  cursor: pointer;
+  z-index: 20;
+  /*
+   * ✅ GPU-ускорение: will-change подсказывает браузеру создать отдельный compositor layer
+   * Это даёт 120fps анимацию без jank на мобиле
+   * will-change также задаётся из JS в cacheDom() для надёжности
+   */
+  will-change: transform;
+}
+
+/*
+ * ✅ FIX v5: TAP ANIMATION
+ *
+ * Использует CSS-переменную --char-scale, которую JS выставляет через style.setProperty.
+ * Благодаря этому bounce корректно масштабируется ОТНОСИТЕЛЬНО текущего char.scale персонажа.
+ *
+ * Трюк сброса анимации в JS:
+ *   1. el.classList.remove('tap-anim')
+ *   2. void el.offsetWidth  ← forced reflow, сбрасывает animation state
+ *   3. el.classList.add('tap-anim')
+ * → Анимация ВСЕГДА запускается заново, даже при 10 тапах в секунду.
+ */
+@keyframes tapBounce {
+  0%   { transform: translate3d(-50%, 0, 0) scale(var(--char-scale, 1)); }
+  30%  { transform: translate3d(-50%, 0, 0) scale(calc(var(--char-scale, 1) * 1.10)); }
+  65%  { transform: translate3d(-50%, 0, 0) scale(calc(var(--char-scale, 1) * 0.96)); }
+  85%  { transform: translate3d(-50%, 0, 0) scale(calc(var(--char-scale, 1) * 1.02)); }
+  100% { transform: translate3d(-50%, 0, 0) scale(var(--char-scale, 1)); }
+}
+
+#characterWrapper.tap-anim {
+  /*
+   * duration: 0.22s — достаточно быстро для ощущения отклика,
+   * достаточно медленно чтобы bounce был виден
+   * cubic-bezier(.34, 1.56, .64, 1) — "spring" easing, упругий отскок
+   * fill-mode: both — финальный кадр (100%) остаётся активным
+   */
+  animation: tapBounce 0.22s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+#charImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+#charVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  /*
+   * mix-blend-mode: screen — production workaround для чёрного фона у demomaks_fire.mp4
+   * Принцип: при blend mode "screen" чёрный цвет (#000000) становится полностью прозрачным.
+   * Работает в Chrome/Safari/Firefox без пересжатия видео.
+   * Ограничение: светлые элементы фона могут "просвечивать" сквозь персонажа.
+   * Решение с alpha: экспортировать как VP9+alpha в webm (Premiere → Media Encoder → WebM VP9).
+   */
+  mix-blend-mode: screen;
+  background: transparent;
+  display: none;
+}
+
+/* ============================================================
+   MENU
+   ============================================================ */
+
+#gameMenu {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  width: 95%;
+  height: var(--menu-h);
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--t-menu-bg, var(--green-dark));
+  box-shadow:
+    0 8px 32px rgba(0,0,0,.55),
+    inset 0 1px 0 rgba(255,255,255,.07);
+  border: 1px solid var(--t-menu-border, rgba(255,255,255,.06));
+  z-index: 100;
+  transition:
+    background .3s ease,
+    border-color .3s ease;
+}
+
+.menuBtn {
+  flex: 1;
+  border: none;
+  background: var(--t-btn-bg, var(--green-dark));
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: clamp(12px, 3.2vw, 17px);
+  font-weight: 900;
+  cursor: pointer;
+  border-radius: 16px;
+  margin: 4px;
+  transition:
+    background .18s ease,
+    color .18s ease,
+    box-shadow .18s ease;
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+}
+
+.menuBtn:active {
+  transform: scale(.93);
+  transition: transform .05s ease;
+}
+
+.menuBtn:hover {
+  background: var(--t-btn-hover, var(--green-hover));
+  color: #fff;
+}
+
+.menuBtn--active {
+  background: linear-gradient(
+    135deg,
+    var(--t-btn-active-from, var(--green-light)),
+    var(--t-btn-active-to, var(--green-glow))
+  ) !important;
+  color: #fff !important;
+  box-shadow:
+    0 0 18px var(--t-btn-active-glow, rgba(80,212,96,.45)),
+    inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+/* FIX: Растамакс — уникальные цвета каждой кнопки меню */
+#gameWrap[data-theme="rasta"] .menuBtn:nth-child(1) {
+  background: #1a5c1a !important;
+  color: #fff !important;
+}
+#gameWrap[data-theme="rasta"] .menuBtn:nth-child(1):hover,
+#gameWrap[data-theme="rasta"] .menuBtn:nth-child(1).menuBtn--active {
+  background: linear-gradient(135deg, #1a5c1a, #2ecc2e) !important;
+  box-shadow: 0 0 18px rgba(46,204,46,.5) !important;
+}
+#gameWrap[data-theme="rasta"] .menuBtn:nth-child(2) {
+  background: #7a6000 !important;
+  color: #fff !important;
+}
+#gameWrap[data-theme="rasta"] .menuBtn:nth-child(2).menuBtn--active {
+  background: linear-gradient(135deg, #a08000, #ffd700) !important;
+  box-shadow: 0 0 18px rgba(255,215,0,.5) !important;
+  color: #111 !important;
+}
+#gameWrap[data-theme="rasta"] .menuBtn:nth-child(3) {
+  background: #5c1a1a !important;
+  color: #fff !important;
+}
+#gameWrap[data-theme="rasta"] .menuBtn:nth-child(3):hover,
+#gameWrap[data-theme="rasta"] .menuBtn:nth-child(3).menuBtn--active {
+  background: linear-gradient(135deg, #8b1a1a, #e74c3c) !important;
+  box-shadow: 0 0 18px rgba(231,76,60,.5) !important;
+}
+
+/* ============================================================
+   RANK
+   ============================================================ */
+
+#rank {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--gold);
+  font-size: clamp(14px, 3.5vw, 20px);
+  font-weight: 900;
+  letter-spacing: .3px;
+  white-space: nowrap;
+  text-shadow:
+    0 0 12px rgba(245,200,66,.5),
+    0 2px 6px rgba(0,0,0,.6);
+  z-index: 200;
+  pointer-events: none;
+}
+
+#rankPopup {
+  position: fixed;
+  top: 75px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  background: linear-gradient(135deg, rgba(0,0,0,.92), rgba(20,46,23,.92));
+  color: white;
+  padding: 14px 28px;
+  border-radius: 18px;
+  border: 1px solid rgba(80,212,96,.3);
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  font-weight: 900;
+  font-size: 16px;
+  z-index: 9999;
+  transition:
+    opacity .3s ease,
+    transform .3s ease;
+}
+
+#rankPopup.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ============================================================
+   SCREENS
+   ============================================================ */
+
+#upgradeScreen,
+#leaderboardScreen {
+  position: absolute;
+  inset: 0;
+  padding-top: 76px;
+  padding-bottom: calc(var(--menu-h) + 30px);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  z-index: 90;
+}
+
+#upgradeScreen.active,
+#leaderboardScreen.active {
+  display: flex;
+}
+
+/* ============================================================
+   UPGRADE TABS
+   ============================================================ */
+
+#upgradeTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 0 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.upgradeTab {
+  border: 1px solid rgba(255,255,255,.1);
+  padding: 12px 22px;
+  border-radius: 14px;
+  background: rgba(20,46,23,.8);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: clamp(13px, 3.2vw, 15px);
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background .18s ease,
+    color .18s ease,
+    transform .08s ease;
+}
+
+.upgradeTab:active {
+  transform: scale(.95);
+}
+
+.upgradeTab.active {
+  background: linear-gradient(
+    135deg,
+    var(--t-tab-active-from, var(--green-mid)),
+    var(--t-tab-active-to, var(--green-light))
+  );
+  color: #fff;
+  border-color: var(--t-accent, var(--green-glow));
+  box-shadow: 0 0 16px rgba(61,166,75,.4);
+}
+
+.upgradeContent {
+  display: none;
+  width: 100%;
+}
+
+.upgradeContent.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ============================================================
+   UPGRADE BUTTON
+   ============================================================ */
+
+.upgradeBtn {
+  border: none;
+  padding: 18px 30px;
+  border-radius: 20px;
+  background: linear-gradient(
+    135deg,
+    var(--t-upgrade-from, #3da64b),
+    var(--t-upgrade-to, #50d460)
+  );
+  color: white;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow:
+    0 6px 24px var(--t-upgrade-glow, rgba(61,166,75,.5)),
+    inset 0 1px 0 rgba(255,255,255,.25);
+  touch-action: manipulation;
+  transition:
+    transform .1s ease,
+    box-shadow .1s ease;
+}
+
+.upgradeBtn:active {
+  transform: scale(.95);
+  box-shadow: 0 2px 12px var(--t-upgrade-glow, rgba(61,166,75,.4));
+}
+
+.upgradeBtn--disabled {
+  background: rgba(255,255,255,.1) !important;
+  box-shadow: none !important;
+  cursor: default;
+  opacity: .6;
+}
+
+/* ============================================================
+   SKIN CATEGORIES
+   ============================================================ */
+
+#skinCategoryBtns {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 0 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.skinCatBtn {
+  border: 1px solid rgba(255,255,255,.12);
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.07);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: clamp(12px, 3vw, 14px);
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background .18s ease,
+    color .18s ease,
+    transform .08s ease,
+    border-color .18s ease;
+}
+
+.skinCatBtn:active {
+  transform: scale(.94);
+}
+
+.skinCatBtn.active {
+  background: linear-gradient(
+    135deg,
+    var(--t-tab-active-from, var(--green-mid)),
+    var(--t-tab-active-to, var(--green-light))
+  );
+  color: #fff;
+  border-color: var(--t-accent, var(--green-glow));
+  box-shadow: 0 0 12px rgba(61,166,75,.35);
+}
+
+#skinPlaceholder {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* ============================================================
+   CHARACTER SELECT
+   ============================================================ */
+
+.charTabTitle {
+  font-size: 18px;
+  color: rgba(255,255,255,.85);
+  font-weight: 900;
+  margin-bottom: 18px;
+  text-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+
+#charSelect {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  padding: 4px 12px 16px;
+}
+
+.charChoice {
+  width: 100px;
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform .15s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.charChoice:hover {
+  transform: scale(1.07);
+}
+
+.charChoice:active {
+  transform: scale(.95);
+}
+
+.charChoice img {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  border-radius: 18px;
+  background: rgba(255,255,255,.07);
+  border: 2px solid rgba(255,255,255,.08);
+  transition:
+    border-color .18s ease,
+    box-shadow .18s ease;
+}
+
+.charChoice--active img {
+  border: 3px solid var(--t-accent, var(--green-glow));
+  box-shadow:
+    0 0 20px rgba(80,212,96,.55),
+    inset 0 0 0 1px rgba(80,212,96,.2);
+}
+
+.charChoice p {
+  margin-top: 7px;
+  color: rgba(255,255,255,.8);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+/* ============================================================
+   LEADERBOARD
+   ============================================================ */
+
+.lb-header {
+  color: white;
+  font-size: 26px;
+  font-weight: 900;
+  margin-bottom: 20px;
+  text-shadow: 0 0 14px rgba(255,255,255,.2);
+}
+
+#lbRefreshBtn,
+#lbSaveBtn {
+  border: none;
+  padding: 12px 20px;
+  border-radius: 13px;
+  background: linear-gradient(
+    135deg,
+    var(--t-tab-active-from, var(--green-mid)),
+    var(--t-tab-active-to, var(--green-light))
+  );
+  color: white;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(61,166,75,.4);
+  touch-action: manipulation;
+  transition: transform .08s ease;
+}
+
+#lbRefreshBtn:active,
+#lbSaveBtn:active {
+  transform: scale(.95);
+}
+
+#lbNickInput {
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 13px;
+  width: 200px;
+  background: rgba(255,255,255,.1);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 700;
+  outline: none;
+  font-size: 16px;
+}
+
+#lbNickInput::placeholder {
+  color: rgba(255,255,255,.4);
+}
+
+#lbNickInput:focus {
+  border-color: var(--t-accent, var(--green-glow));
+  background: rgba(255,255,255,.15);
+}
+
+.lb-nick-wrap {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.lb-list {
+  width: 100%;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,.07);
+  border-radius: 13px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,.05);
+  animation: fadeSlideIn .3s ease both;
+}
+
+.lb-me {
+  background: rgba(61,166,75,.2);
+  border-color: rgba(80,212,96,.35);
+}
+
+.lb-pos  { font-size: 18px; min-width: 28px; }
+.lb-nick { flex: 1; color: #fff; font-weight: 800; font-size: 15px; }
+.lb-score{ color: var(--gold); font-weight: 900; font-size: 14px; }
+.lb-empty{ color: var(--text-dim); text-align: center; padding: 20px; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+
+#upgradeMsg {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--menu-h) + 16px);
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.88);
+  color: white;
+  padding: 13px 22px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.1);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity .2s ease;
+  z-index: 9999;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#upgradeMsg.visible {
+  opacity: 1;
+}
+
+/* ============================================================
+   COIN BURST
+   ============================================================ */
+
+.coinBurst {
+  position: absolute;
+  font-size: clamp(22px, 6vw, 30px);
+  font-weight: 900;
+  pointer-events: none;
+  animation: coinAnim .85s cubic-bezier(.22, 1, .36, 1) forwards;
+  z-index: 50;
+  /* Цвет задаётся через inline style из JS */
+}
+
+.coinBurst--fire {
+  color: #ffcf33 !important;
+  text-shadow: 0 0 12px rgba(255,120,0,.7) !important;
+}
+
+@keyframes coinAnim {
+  0%   { opacity: 1; transform: translateY(0)    scale(1.2); }
+  60%  { opacity: 1; transform: translateY(-55px) scale(1);  }
+  100% { opacity: 0; transform: translateY(-90px) scale(.6); }
+}
+
+/* ============================================================
+   EFFECTS
+   ============================================================ */
+
+.fire-counter {
+  color: #ffcf33 !important;
+  text-shadow: 0 0 18px rgba(255,100,0,.7) !important;
+}
+
+.fire-menu-btn {
+  background: linear-gradient(135deg, #a01c0c, #c2321c) !important;
+}
+
+/* ============================================================
+   ANIMS
+   ============================================================ */
+
+@keyframes spinCoin {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+
+/* ============================================================
+   MOBILE FIXES
+   ============================================================ */
+
+@media (max-width: 480px) {
+
+  #upgradeScreen {
+    overflow-y: auto;
+    padding-bottom: calc(var(--menu-h) + 40px);
+    padding-top: 66px;
+  }
+
+  #upgradeContent-character {
+    width: 100%;
+    padding-bottom: 20px;
+  }
+
+  #skinCategoryBtns {
+    gap: 8px;
+    padding: 0 10px;
+    margin-bottom: 14px;
+  }
+
+  .skinCatBtn {
+    padding: 12px 16px;
+    font-size: 13px;
+    border-radius: 12px;
+    min-height: 48px;
+  }
+
+  #charSelect {
+    gap: 10px;
+    padding: 4px 8px 20px;
+  }
+
+  .charChoice {
+    width: 80px;
+  }
+
+  .charChoice img {
+    width: 72px;
+    height: 72px;
+    border-radius: 14px;
+  }
+
+  .charChoice p {
+    font-size: 11px;
+  }
+
+  #upgradeTabs {
+    gap: 8px;
+    padding: 0 10px;
+    margin-bottom: 20px;
+  }
+
+  .upgradeTab {
+    padding: 14px 20px;
+    font-size: 14px;
+    border-radius: 14px;
+    min-height: 52px;
+    flex: 1;
+    min-width: 110px;
+  }
+
+  #counter {
+    top: 80px;
+  }
+
+  #rank {
+    top: 20px;
+  }
+
+}
+
+/* ============================================================
+   ОЧЕНЬ МАЛЕНЬКИЕ ЭКРАНЫ (< 360px)
+   ============================================================ */
+
+@media (max-width: 360px) {
+
+  .skinCatBtn {
+    padding: 10px 12px;
+    font-size: 12px;
+    min-height: 44px;
+  }
+
+  .charChoice {
+    width: 72px;
+  }
+
+  .charChoice img {
+    width: 64px;
+    height: 64px;
+  }
+
+  .menuBtn {
+    font-size: 11px;
+  }
+
+  .upgradeTab {
+    padding: 12px 14px;
+    font-size: 12px;
+    min-height: 48px;
+  }
+
+}

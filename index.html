@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <!--
+    ✅ FIX Safari iOS zoom:
+    - maximum-scale=1.0 + user-scalable=no запрещает pinch-zoom
+    - viewport-fit=cover для notch-экранов
+  -->
+  <meta name="viewport"
+        content="width=device-width,
+                 initial-scale=1.0,
+                 maximum-scale=1.0,
+                 minimum-scale=1.0,
+                 user-scalable=no,
+                 viewport-fit=cover" />
+
+  <title>Тапалка</title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="./style.css">
+
+</head>
+
+<body>
+
+  <!-- =========================
+       LOADER
+  ========================== -->
+
+  <div id="loader">
+
+    <video autoplay muted playsinline>
+
+      <source
+        src="./assets/videos/pivko.mp4"
+        type="video/mp4">
+
+    </video>
+
+  </div>
+
+  <!-- =========================
+       GAME
+  ========================== -->
+
+  <div id="gameWrap">
+
+    <!-- =========================
+         COUNTER
+    ========================== -->
+
+    <div id="counter">
+
+      <span id="counterNumber">0</span>
+
+      <img
+        id="counterImg"
+        src="./assets/images/govno.png"
+        alt="coin">
+
+    </div>
+
+    <!-- =========================
+         RANK
+    ========================== -->
+
+    <div id="rank">
+      Ранг: Праскуриот 🤵🏿‍♂️
+    </div>
+
+    <div id="rankPopup" class="hidden"></div>
+
+    <!-- =========================
+         CHARACTER
+    ========================== -->
+
+    <div id="characterWrapper">
+
+      <!-- IMAGE -->
+      <img
+        id="charImg"
+        src="./assets/images/obichni.png"
+        alt="Персонаж">
+
+      <!--
+        VIDEO — управляется через JS
+        ✅ FIX: убран атрибут loop — зацикливание было задано на уровне HTML,
+                JS-правки не имели эффекта пока loop стоял в разметке
+      -->
+      <video
+        id="charVideo"
+        muted
+        playsinline
+        style="display:none;">
+
+        <source
+          src="./assets/videos/demomaks_fire.webm"
+          type="video/webm">
+
+        <source
+          src="./assets/videos/demomaks_fire.mp4"
+          type="video/mp4">
+
+      </video>
+
+    </div>
+
+    <!-- =========================
+         UPGRADE SCREEN
+    ========================== -->
+
+    <div id="upgradeScreen">
+
+      <!-- TABS -->
+      <div id="upgradeTabs">
+
+        <button
+          class="upgradeTab active"
+          data-target="profit">
+
+          Прибыль
+
+        </button>
+
+        <button
+          class="upgradeTab"
+          data-target="character">
+
+          Скины
+
+        </button>
+
+      </div>
+
+      <!-- PROFIT TAB -->
+      <div
+        id="upgradeContent-profit"
+        class="upgradeContent active">
+
+        <button
+          id="upgradeBtn"
+          class="upgradeBtn">
+
+          Улучшить
+
+        </button>
+
+      </div>
+
+      <!-- CHARACTER / SKINS TAB -->
+      <div
+        id="upgradeContent-character"
+        class="upgradeContent">
+
+        <!-- Категории скинов -->
+        <div id="skinCategoryBtns">
+
+          <button class="skinCatBtn active" data-cat="proskurin">
+            Проскурио
+          </button>
+
+          <button class="skinCatBtn" data-cat="panin">
+            Панин
+          </button>
+
+          <button class="skinCatBtn" data-cat="saygak">
+            Сайгак
+          </button>
+
+        </div>
+
+        <!-- Карточки персонажей (фильтруются по категории) -->
+        <div id="charSelect"></div>
+
+        <!-- Заглушка для пустых категорий -->
+        <div id="skinPlaceholder" class="hidden">
+          <p class="lb-empty">🚧 Скоро появятся персонажи!</p>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- =========================
+         LEADERBOARD
+    ========================== -->
+
+    <div id="leaderboardScreen">
+
+      <p class="lb-header">
+
+        🏆 Рейтинг игроков
+
+      </p>
+
+      <div class="lb-nick-wrap">
+
+        <input
+          id="lbNickInput"
+          type="text"
+          placeholder="Твой ник"
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false">
+
+        <button id="lbSaveBtn">
+
+          💾 Сохранить
+
+        </button>
+
+      </div>
+
+      <button id="lbRefreshBtn">
+
+        🔄 Обновить рейтинг
+
+      </button>
+
+      <div id="lbContainer"></div>
+
+    </div>
+
+    <!-- =========================
+         MAIN MENU
+    ========================== -->
+
+    <div id="gameMenu">
+
+      <button class="menuBtn">
+
+        Улучшения
+
+      </button>
+
+      <button class="menuBtn menuBtn--active">
+
+        Майнинг
+
+      </button>
+
+      <button class="menuBtn">
+
+        Рейтинг
+
+      </button>
+
+    </div>
+
+    <!-- =========================
+         TOAST
+    ========================== -->
+
+    <div id="upgradeMsg" class="hidden"></div>
+
+  </div>
+
+  <!-- =========================
+       MAIN JS
+  ========================== -->
+
+  <script
+    type="module"
+    src="./js/game.js">
+  </script>
+
+</body>
+
+</html>
