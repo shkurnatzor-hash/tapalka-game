@@ -1,22 +1,28 @@
 /**
- * ui.js — TAP ANIMATION v2 (ultra-responsive)
+ * ui.js — v3 (Skin Purchase System + TAP ANIMATION v2)
  *
- * ИЗМЕНЕНИЯ:
- *  1. animateTap() — полностью переписана:
- *       - убран setTimeout-based transform (конфликт при быстром тапе)
- *       - используется CSS class + forced reflow restart trick
- *       - pressSrc swap сокращён до 80ms
- *       - работает корректно при 10+ taps/sec и мультитаче
- *  2. renderCharacter() — добавлен style.setProperty('--char-scale')
- *       чтобы CSS keyframes (tapBounce) читали правильный масштаб
- *  3. playCharVideo() — оставлен для совместимости (demomaks теперь image,
- *       но функция безопасно no-ops при type !== 'video')
- *  4. Видео-логика (_showVideo) сохранена для возможных будущих персонажей
+ * ИЗМЕНЕНИЯ v3:
+ *  1. buildCharGrid() — полная система покупки/выбора скинов:
+ *       - LOCKED: серая карточка + цена + кнопка "🔒 N 🐷"
+ *       - OWNED:  кнопка "Выбрать"
+ *       - ACTIVE: бейдж "✓ Выбран"
+ *  2. _renderCharCards() + refreshCharGridState() — rebuild без перенастройки
+ *     listeners на категории
+ *  3. _handleBuy() — purchase flow: списание монет, анимация, обновление грида
+ *  4. renderCharacter() теперь вызывает refreshCharGridState()
+ *  5. Импорт purchaseSkin + playSfx
+ *
+ * СОХРАНЕНО из v2:
+ *  - animateTap() ultra-responsive (CSS keyframes + forced reflow)
+ *  - playCharVideo() для совместимости
+ *  - renderCharacter(), renderCounter(), spawnCoinBurst() без изменений
+ *  - showTab(), renderUpgradeBtn(), showToast(), hideLoader()
  */
 
-import { state }      from './state.js';
-import { CONFIG }     from './config.js';
-import { CHARACTERS } from './characters.js';
+import { state, purchaseSkin }  from './state.js';
+import { CONFIG }                from './config.js';
+import { CHARACTERS }            from './characters.js';
+import { playSfx }               from './sound.js';
 
 // ─── Кэш DOM ──────────────────────────────────────────────────────────────────
 export const DOM = {};
@@ -46,7 +52,7 @@ export function cacheDom() {
   DOM.skinCategoryBtns = Array.from(document.querySelectorAll('.skinCatBtn'));
   DOM.skinPlaceholder  = document.getElementById('skinPlaceholder');
 
-  // GPU-hint: выставляем will-change сразу при кэше DOM
+  // GPU-hint
   if (DOM.characterWrapper) {
     DOM.characterWrapper.style.willChange = 'transform';
   }
@@ -87,30 +93,11 @@ export function renderCharacter() {
     DOM.gameWrap.dataset.theme = char.theme ?? '';
   }
 
-  // ✅ Синхронизируем --char-scale ДО того, как начнётся анимация
+  // Синхронизируем --char-scale ДО начала анимации
   if (DOM.characterWrapper) {
     DOM.characterWrapper.style.setProperty('--char-scale', char.scale);
     DOM.characterWrapper.style.transform = `translateX(-50%) scale(${char.scale})`;
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // 📐 ВЕРТИКАЛЬНАЯ ПОЗИЦИЯ ПЕРСОНАЖА (bottomOffset)
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //
-    // Базовый bottom задан в CSS: calc(var(--menu-h) + 24px)
-    // Чтобы опустить персонажа вниз — увеличивай bottomOffset в characters.js.
-    //
-    // Формула:
-    //   bottom = (высота меню + 24px) - bottomOffset
-    //
-    // Примеры:
-    //   bottomOffset: 0   → стандартная позиция
-    //   bottomOffset: 20  → опускает вниз ~1 см
-    //   bottomOffset: 38  → опускает вниз ~2 см
-    //   bottomOffset: 56  → опускает вниз ~3 см
-    //
-    // Где менять: characters.js → поле bottomOffset у нужного персонажа.
-    // Этот код автоматически подхватит новое значение.
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const offset = char.bottomOffset ?? 0;
     DOM.characterWrapper.style.bottom = `calc(var(--menu-h) + 24px - ${offset}px)`;
   }
@@ -123,45 +110,11 @@ export function renderCharacter() {
 
   _applyEffects(char.effects);
 
-  DOM.charSelectWrap?.querySelectorAll('.charChoice').forEach(el => {
-    el.classList.toggle('charChoice--active', el.dataset.char === char.id);
-  });
+  // Обновляем состояние карточек грида (если грид уже построен)
+  refreshCharGridState();
 }
 
 // ─── Анимация тапа (v2 — ultra-responsive) ────────────────────────────────────
-//
-// Проблема старой версии:
-//   setTimeout(130ms) + прямой style.transform конфликтовали при быстром тапе.
-//   При 4+ tap/sec setTimeout не успевал отрабатывать и transform "залипал".
-//
-// Решение:
-//   Используем CSS keyframes (.tap-anim) + forced reflow для перезапуска.
-//   Браузер сам управляет compositing на GPU — нет JS-таймеров на трансформ.
-//   Анимация ВСЕГДА перезапускается с нуля, даже при 20 tap/sec.
-//
-// Техника restart:
-//   1. classList.remove('tap-anim')   → browser stops current animation
-//   2. void el.offsetWidth            → forced reflow сбрасывает state
-//   3. classList.add('tap-anim')      → animation starts fresh
-//
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ⏱ УПРАВЛЕНИЕ СКОРОСТЬЮ TAP-КАРТИНКИ (pressDuration)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//
-// Каждый персонаж может иметь своё поле pressDuration (в мс) в characters.js.
-// Это время, сколько показывается tap-картинка (pressSrc) перед возвратом.
-//
-// Если поле не задано → fallback 80ms (быстро, как было раньше).
-//
-// Рекомендуемые значения:
-//   80ms  → по умолчанию, очень быстро (незаметно при частом тапе)
-//   160ms → комфортно, глаз успевает зафиксировать
-//   180ms → оптимально — заметно, но без ощущения задержки
-//   220ms → чуть медленнее, подходит если тапают редко
-//   300ms → медленно, не рекомендуется
-//
-// Где менять: characters.js → поле pressDuration у нужного персонажа.
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 let _pressTimer = null;
 
 export function animateTap() {
@@ -169,22 +122,18 @@ export function animateTap() {
   const el   = DOM.characterWrapper;
   if (!el) return;
 
-  // ── CSS animation restart (zero setTimeout, zero transform conflict) ──
+  // CSS animation restart trick (zero setTimeout, zero transform conflict)
   el.classList.remove('tap-anim');
-  void el.offsetWidth;          // forced reflow — ключевой момент
+  void el.offsetWidth;   // forced reflow
   el.classList.add('tap-anim');
 
-  // ── pressSrc swap: длительность берётся из char.pressDuration ──
-  // Дефолт 80ms для персонажей без этого поля — поведение не меняется.
+  // pressSrc swap
   if (char.type === 'image' && char.pressSrc && DOM.charImg) {
     DOM.charImg.src = char.pressSrc;
 
-    // Читаем индивидуальную длительность (barsuk/rastamaks/tajik = 180ms, остальные = 80ms)
     const duration = char.pressDuration ?? 80;
-
     if (_pressTimer) clearTimeout(_pressTimer);
     _pressTimer = setTimeout(() => {
-      // Проверяем что персонаж не сменился пока таймер ждал
       if (state.char.id === char.id && DOM.charImg) {
         DOM.charImg.src = char.src;
       }
@@ -193,7 +142,7 @@ export function animateTap() {
   }
 }
 
-// ─── Видео-персонаж (сохранено для совместимости) ─────────────────────────────
+// ─── Видео-персонаж (совместимость) ───────────────────────────────────────────
 export function playCharVideo() {
   const char = state.char;
   if (char.type !== 'video' || !DOM.charVideo) return;
@@ -226,6 +175,12 @@ export function showTab(name) {
       (i === 2 && isLeaderboard)
     );
   });
+
+  // При открытии вкладки скинов — обновляем состояние карточек
+  // (баланс мог измениться пока вкладка была закрыта)
+  if (isUpgrade) {
+    refreshCharGridState();
+  }
 }
 
 // ─── Кнопка апгрейда ──────────────────────────────────────────────────────────
@@ -259,24 +214,31 @@ export function showToast(text) {
   _toastTimer = setTimeout(() => DOM.upgradeMsg.classList.remove('visible'), 1800);
 }
 
-// ─── Грид персонажей ──────────────────────────────────────────────────────────
+// ─── Лоадер ───────────────────────────────────────────────────────────────────
+export function hideLoader() {
+  if (!DOM.loader) return;
+  DOM.loader.classList.add('loader--hidden');
+  setTimeout(() => DOM.loader.remove(), 500);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SKIN PURCHASE SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _onCharSelectCallback = null;   // callback из game.js (_onCharSelect)
+
+/**
+ * Построить грид персонажей.
+ * Вызывается один раз при инициализации из game.js.
+ * @param {Function} onSelect — callback при выборе купленного персонажа
+ */
 export function buildCharGrid(onSelect) {
+  _onCharSelectCallback = onSelect;
   if (!DOM.charSelectWrap) return;
 
-  DOM.charSelectWrap.innerHTML = '';
+  _renderCharCards();
 
-  CHARACTERS.forEach(char => {
-    const div = document.createElement('div');
-    div.className    = 'charChoice';
-    div.dataset.char = char.id;
-    div.dataset.cat  = char.category;
-    div.innerHTML    = `
-      <img src="${char.thumbnail}" alt="${char.name}" loading="lazy">
-      <p>${char.name}</p>`;
-    div.addEventListener('click', () => onSelect(char.id));
-    DOM.charSelectWrap.appendChild(div);
-  });
-
+  // Настраиваем кнопки категорий (один раз)
   const activeCatBtn = document.querySelector('.skinCatBtn.active');
   const initialCat   = activeCatBtn?.dataset.cat ?? 'proskurin';
   _filterSkinsByCategory(initialCat);
@@ -290,14 +252,122 @@ export function buildCharGrid(onSelect) {
   });
 }
 
-// ─── Лоадер ───────────────────────────────────────────────────────────────────
-export function hideLoader() {
-  if (!DOM.loader) return;
-  DOM.loader.classList.add('loader--hidden');
-  setTimeout(() => DOM.loader.remove(), 500);
+/**
+ * Обновить состояние карточек грида без полного rebuild.
+ * Вызывается из renderCharacter() и showTab('upgrade').
+ */
+export function refreshCharGridState() {
+  if (!DOM.charSelectWrap || DOM.charSelectWrap.children.length === 0) return;
+
+  _renderCharCards();
+
+  // Восстанавливаем текущий фильтр категории
+  const activeCat = document.querySelector('.skinCatBtn.active')?.dataset.cat ?? 'proskurin';
+  _filterSkinsByCategory(activeCat);
 }
 
-// ─── Приватные хелперы ────────────────────────────────────────────────────────
+// ─── Приватные ────────────────────────────────────────────────────────────────
+
+/**
+ * Полный rebuild карточек персонажей.
+ * Вызывается при покупке, смене персонажа, открытии вкладки.
+ */
+function _renderCharCards() {
+  if (!DOM.charSelectWrap) return;
+  DOM.charSelectWrap.innerHTML = '';
+
+  CHARACTERS.forEach(char => {
+    const isPurchased = state.purchasedSkins.includes(char.id);
+    const isActive    = state.charId === char.id;
+    const price       = char.price ?? 50;
+    const canAfford   = state.score >= price;
+
+    // CSS классы
+    const classes = [
+      'charChoice',
+      isActive    ? 'charChoice--active' : '',
+      isPurchased ? 'charChoice--owned'  : 'charChoice--locked',
+    ].filter(Boolean).join(' ');
+
+    const div = document.createElement('div');
+    div.className    = classes;
+    div.dataset.char = char.id;
+    div.dataset.cat  = char.category;
+
+    // Action-зона под именем
+    let actionHtml;
+    if (isActive) {
+      actionHtml = `<span class="charChoice-badge charChoice-badge--selected">✓ Выбран</span>`;
+    } else if (isPurchased) {
+      actionHtml = `<button class="charChoice-btn charChoice-btn--select">Выбрать</button>`;
+    } else {
+      const cantClass = canAfford ? '' : 'charChoice-btn--cant-afford';
+      actionHtml = `<button class="charChoice-btn charChoice-btn--buy ${cantClass}">🔒 ${price} 🐷</button>`;
+    }
+
+    // Lock overlay на картинке
+    const lockOverlay = isPurchased
+      ? ''
+      : `<div class="charChoice-lock-overlay">🔒</div>`;
+
+    div.innerHTML = `
+      <div class="charChoice-img-wrap">
+        <img src="${char.thumbnail}" alt="${char.name}" loading="lazy">
+        ${lockOverlay}
+      </div>
+      <p>${char.name}</p>
+      <div class="charChoice-actions">${actionHtml}</div>`;
+
+    // Events
+    const btn = div.querySelector('.charChoice-btn');
+    if (btn) {
+      if (btn.classList.contains('charChoice-btn--select')) {
+        btn.addEventListener('click', () => _onCharSelectCallback?.(char.id));
+      } else if (btn.classList.contains('charChoice-btn--buy')) {
+        btn.addEventListener('click', () => _handleBuy(char));
+      }
+    }
+
+    DOM.charSelectWrap.appendChild(div);
+  });
+}
+
+/**
+ * Обработка покупки скина.
+ */
+function _handleBuy(char) {
+  const price = char.price ?? 50;
+
+  if (state.score < price) {
+    showToast(`Нужно ещё ${price - state.score} 🐷 для покупки!`);
+    return;
+  }
+
+  const ok = purchaseSkin(char.id);
+
+  if (ok) {
+    // Анимация на карточке
+    const card = DOM.charSelectWrap?.querySelector(`[data-char="${char.id}"]`);
+    if (card) {
+      card.classList.add('charChoice--buy-anim');
+      setTimeout(() => card.classList.remove('charChoice--buy-anim'), 350);
+    }
+
+    // Обновляем счётчик монет
+    renderCounter();
+
+    // Звук и тост
+    playSfx('./assets/sounds/rankup.mp3');
+    showToast(`🎉 Куплен: ${char.name}!`);
+
+    // Rebuild карточек с новым состоянием
+    const activeCat = document.querySelector('.skinCatBtn.active')?.dataset.cat ?? 'proskurin';
+    _renderCharCards();
+    _filterSkinsByCategory(activeCat);
+  } else {
+    showToast(`Нужно ${price} 🐷 для покупки!`);
+  }
+}
 
 function _filterSkinsByCategory(cat) {
   if (!DOM.charSelectWrap || !DOM.skinPlaceholder) return;
@@ -310,11 +380,7 @@ function _filterSkinsByCategory(cat) {
     if (match) visibleCount++;
   });
 
-  if (visibleCount === 0) {
-    DOM.skinPlaceholder.classList.remove('hidden');
-  } else {
-    DOM.skinPlaceholder.classList.add('hidden');
-  }
+  DOM.skinPlaceholder.classList.toggle('hidden', visibleCount > 0);
 }
 
 function _setBackground(bgPath) {
@@ -330,7 +396,6 @@ function _showImage(char) {
     DOM.charImg.src           = char.src;
     DOM.charImg.style.display = 'block';
   }
-
   if (DOM.charVideo) {
     DOM.charVideo.pause();
     DOM.charVideo.currentTime   = 0;
