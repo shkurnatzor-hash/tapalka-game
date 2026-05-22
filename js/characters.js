@@ -1,10 +1,18 @@
 /**
  * characters.js
- * UPDATED:
- *  - demomaks: type 'video' → 'image' (видео удалено, используем demomaks.png)
- *  - rastamaks: добавлен pressSrc для анимации тапа (rast.png → rast2.png)
- *  - barsuk / rastamaks / tajik: добавлен pressDuration (мс) — время показа tap-картинки
- *  - bottomOffset: сколько пикселей добавить к базовому bottom персонажа
+ * UPDATED v2:
+ *  - Добавлено поле price (стоимость в свинкойнах) для каждого персонажа
+ *  - barsuk: price = 0 (бесплатный, разблокирован по умолчанию)
+ *  - Добавлен новый персонаж «тимон и пумба» (id: timon, category: panin)
+ *
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 💰 ЦЕНЫ ПЕРСОНАЖЕЙ
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *
+ * price: 0     → бесплатный (barsuk)
+ * price: 52    → demomaks, rastamaks, boroda
+ * price: 67    → maksvin, kotomaks, panin, saygak
+ * price: 50    → tajik, timon (и все прочие по умолчанию)
  *
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 📐 КАК ДВИГАТЬ ПЕРСОНАЖА ВНИЗ (позиция)
@@ -12,64 +20,51 @@
  *
  * Базовая позиция #characterWrapper задана в style.css:
  *   bottom: calc(var(--menu-h) + 24px)
- *   — т.е. персонаж стоит над нижним меню.
  *
  * Чтобы опустить КОНКРЕТНОГО персонажа вниз — используй поле `bottomOffset`.
  * Это число в пикселях, которое ВЫЧИТАЕТСЯ из базового bottom.
  * Чем БОЛЬШЕ значение → тем НИЖЕ персонаж.
  *
- *   bottomOffset: 0   → стандартная позиция (не трогает)
- *   bottomOffset: 10  → опускает вниз примерно на 0.5–0.7 см (≈ 10px)
- *   bottomOffset: 20  → опускает вниз примерно на 1–1.2 см (≈ 20px)
- *   bottomOffset: 38  → опускает вниз примерно на 2 см (≈ 38px)
- *
- * Где это применяется: ui.js → функция renderCharacter()
- *   DOM.characterWrapper.style.bottom = `calc(var(--menu-h) + 24px - ${char.bottomOffset || 0}px)`;
- *
- * ❗ Если поле bottomOffset не указано — персонаж будет на стандартной позиции (0).
+ *   bottomOffset: 0   → стандартная позиция
+ *   bottomOffset: 20  → опускает вниз ~1 см
+ *   bottomOffset: 38  → опускает вниз ~2 см
  *
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * ⏱ КАК УПРАВЛЯТЬ СКОРОСТЬЮ TAP-АНИМАЦИИ
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  *
- * Поле `pressDuration` (миллисекунды) — как долго показывается tap-картинка (pressSrc).
- * Работает ТОЛЬКО если у персонажа есть pressSrc (вторая картинка для тапа).
- *
- *   pressDuration: 80   → быстро (по умолчанию для всех без этого поля)
- *   pressDuration: 160  → чуть дольше, глаз успевает увидеть
- *   pressDuration: 220  → заметно, но ещё не медленно
- *   pressDuration: 300  → медленно, не рекомендуется для частого тапа
- *
- * Где это применяется: ui.js → функция animateTap()
- *   const duration = char.pressDuration ?? 80;
+ * pressDuration (мс) — время показа tap-картинки (pressSrc).
+ *   80ms  → быстро (дефолт)
+ *   180ms → оптимально — заметно, без задержки
  */
 
 export const CHARACTERS = [
 
+  // ── БАРСУК — бесплатный стартовый персонаж ──
   {
     id: 'barsuk',
     name: 'Барсук',
     category: 'proskurin',
+    price: 0,              // БЕСПЛАТНО — разблокирован по умолчанию
     type: 'image',
     src: './assets/images/obichni.png',
     pressSrc: './assets/images/jmy.png',
     thumbnail: './assets/images/obichni.png',
     music: './assets/sounds/mellroy.mp3',
     background: './assets/images/background.jpg',
-    // ⬇ ПОЗИЦИЯ: опускаем Барсука вниз примерно на 1 см (≈ 18–20px)
-    // Увеличь это число чтобы опустить ещё, уменьши чтобы поднять
     bottomOffset: 20,
     scale: 1.0,
-    // ⏱ TAP: увеличено время показа второй картинки — глаз успевает увидеть
     pressDuration: 180,
     theme: null,
     effects: { fireCounter: false, fireMenu: false }
   },
 
+  // ── МАКСВИН ──
   {
     id: 'maksvin',
     name: 'Максвин',
     category: 'proskurin',
+    price: 67,
     type: 'image',
     src: './assets/images/maksvin.png',
     pressSrc: null,
@@ -81,11 +76,12 @@ export const CHARACTERS = [
     effects: { fireCounter: false, fireMenu: false }
   },
 
-  // ── DEMOMAKS: полностью image-based (видео удалено) ──
+  // ── DEMOMAKS ──
   {
     id: 'demomaks',
     name: 'Демомакс',
     category: 'proskurin',
+    price: 52,
     type: 'image',
     src: './assets/images/demomaks.png',
     pressSrc: null,
@@ -97,10 +93,12 @@ export const CHARACTERS = [
     effects: { fireCounter: true, fireMenu: true }
   },
 
+  // ── КОТОМАКС ──
   {
     id: 'kotomaks',
     name: 'Котомакс',
     category: 'proskurin',
+    price: 67,
     type: 'image',
     src: './assets/images/KOTOMAKS.png',
     pressSrc: null,
@@ -112,11 +110,12 @@ export const CHARACTERS = [
     effects: { fireCounter: false, fireMenu: false }
   },
 
-  // ── РАСТАМАКС: pressSrc + замедленная tap-анимация ──
+  // ── РАСТАМАКС ──
   {
     id: 'rastamaks',
     name: 'Растамакс',
     category: 'proskurin',
+    price: 52,
     type: 'image',
     src: './assets/images/rast.png',
     pressSrc: './assets/images/rast2.png',
@@ -124,7 +123,6 @@ export const CHARACTERS = [
     music: './assets/sounds/sun.mp3',
     background: './assets/images/ras.jpg',
     scale: 1.0,
-    // ⏱ TAP: увеличено время показа второй картинки
     pressDuration: 180,
     theme: 'rasta',
     effects: { fireCounter: false, fireMenu: false }
@@ -135,16 +133,15 @@ export const CHARACTERS = [
     id: 'tajik',
     name: 'Таджик',
     category: 'proskurin',
+    price: 50,
     type: 'image',
     src: './assets/images/zima.png',
     pressSrc: './assets/images/zima2.png',
     thumbnail: './assets/images/zima.png',
     music: './assets/sounds/tjk.mp3',
     background: './assets/images/winter.jpg',
-    // ⬇ ПОЗИЦИЯ: опускаем Таджика вниз примерно на 2 см (≈ 38px)
     bottomOffset: 38,
     scale: 1.0,
-    // ⏱ TAP: увеличено время показа второй картинки
     pressDuration: 180,
     theme: 'orange',
     effects: { fireCounter: false, fireMenu: false }
@@ -155,6 +152,7 @@ export const CHARACTERS = [
     id: 'panin',
     name: 'Панин',
     category: 'panin',
+    price: 67,
     type: 'image',
     src: './assets/images/panin1.png',
     pressSrc: null,
@@ -166,11 +164,29 @@ export const CHARACTERS = [
     effects: { fireCounter: false, fireMenu: false }
   },
 
+  // ── ТИМОН И ПУМБА (NEW) ──
+  {
+    id: 'timon',
+    name: 'Тимон и Пумба',
+    category: 'panin',           // рядом с Паниным
+    price: 50,
+    type: 'image',
+    src: './assets/images/tim.png',
+    pressSrc: null,
+    thumbnail: './assets/images/tim.png',
+    music: './assets/sounds/pyk.mp3',
+    background: './assets/images/pysto.jpg',
+    scale: 1.0,
+    theme: null,
+    effects: { fireCounter: false, fireMenu: false }
+  },
+
   // ── САЙГАК ──
   {
     id: 'saygak',
     name: 'Сайгак',
     category: 'saygak',
+    price: 67,
     type: 'image',
     src: './assets/images/barbara.png',
     pressSrc: null,
@@ -188,13 +204,13 @@ export const CHARACTERS = [
     id: 'boroda',
     name: 'Бородач',
     category: 'saygak',
+    price: 52,
     type: 'image',
     src: './assets/images/boroda.png',
     pressSrc: null,
     thumbnail: './assets/images/boroda.png',
     music: './assets/sounds/anash.mp3',
     background: './assets/images/police.jpg',
-    // ⬇ ПОЗИЦИЯ: опускаем Бородача вниз примерно на 1.5 см (≈ 28px)
     bottomOffset: 28,
     scale: 1.0,
     theme: 'darkgrey',
