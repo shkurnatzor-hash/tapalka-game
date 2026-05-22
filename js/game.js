@@ -1,10 +1,11 @@
 /**
- * game.js  —  точка входа (ES-модуль)
+ * game.js  —  точка входа (ES-модуль) v2
  *
- * ИСПРАВЛЕНИЯ:
- *  1. _onTap вызывает playCharVideo() — видео Демомакса стартует только при тапе
- *  2. Убран лишний флаг started из логики тапа
- *  3. Порядок вызовов оптимизирован
+ * ИЗМЕНЕНИЯ v2:
+ *  1. _onCharSelect теперь проверяет purchasedSkins перед установкой персонажа
+ *     (защита на случай прямого вызова с незакрытым скином)
+ *  2. refreshCharGridState() вызывается после выбора персонажа
+ *  3. Импорты обновлены (purchaseSkin удалён — теперь только в ui.js)
  */
 
 import { CONFIG } from './config.js';
@@ -49,6 +50,7 @@ import {
   upgradeCost,
   showToast,
   buildCharGrid,
+  refreshCharGridState,
   hideLoader
 } from './ui.js';
 
@@ -72,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setTimeout(() => hideLoader(), CONFIG.LOADER_DURATION_MS || 2500);
 
-    // Safety
+    // Safety fallback
     setTimeout(() => {
       const loader = document.getElementById('loader');
       if (loader) loader.style.display = 'none';
@@ -87,28 +89,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loader = document.getElementById('loader');
     if (loader) loader.style.display = 'none';
   }
-    // Блокировка ника после первого сохранения
-  // Сброс ника для тестов (убери потом)
-  // localStorage.removeItem('svinkoiny_nick_locked');
+
+  // Блокировка ника после первого сохранения
   if (localStorage.getItem('svinkoiny_nick_locked') === 'true' && DOM.lbSaveBtn) {
     DOM.lbSaveBtn.disabled = true;
   }
 });
-
-
-// ─────────────────────────────────────────────────────────────
-// FIREBASE
-// ─────────────────────────────────────────────────────────────
-
-async function _initFirebase() {
-  try {
-    const { db } = await import('./firebase-init.js');
-    console.log("✅ Firebase DB imported successfully");
-    initLeaderboard(db, DOM.lbContainer);
-  } catch (err) {
-    console.error("❌ Firebase init failed:", err);
-  }
-}
 
 
 // ─────────────────────────────────────────────────────────────
@@ -130,7 +116,6 @@ function _renderAll() {
 function _bindEvents() {
 
   // ── ТАП ──
-  // passive:false чтобы preventDefault работал (против зума)
   DOM.characterWrapper?.addEventListener(
     'pointerdown',
     _onTap,
@@ -170,7 +155,6 @@ function _bindEvents() {
   document
     .getElementById('lbRefreshBtn')
     ?.addEventListener('click', loadAndRenderLeaderboard);
-
 }
 
 
@@ -179,8 +163,7 @@ function _bindEvents() {
 // ─────────────────────────────────────────────────────────────
 
 function _onTap(e) {
-  // ✅ FIX: preventDefault блокирует системный зум при частом тапе
-  e.preventDefault();
+  e.preventDefault(); // блокирует системный зум при частом тапе
 
   const x = e.clientX;
   const y = e.clientY;
@@ -189,8 +172,6 @@ function _onTap(e) {
   renderCounter();
   spawnCoinBurst(x, y, state.multiplier);
   animateTap();
-
-  // ✅ FIX: Запускаем видео при тапе (для Демомакса и видео-персонажей)
   playCharVideo();
 
   updateRank();
@@ -226,13 +207,19 @@ function _onUpgrade() {
 
 
 // ─────────────────────────────────────────────────────────────
-// CHARACTER
+// CHARACTER SELECT (только для уже купленных)
 // ─────────────────────────────────────────────────────────────
 
 function _onCharSelect(charId) {
+  // Защита: нельзя выбрать незакупленный персонаж
+  if (!state.purchasedSkins.includes(charId)) {
+    showToast('Сначала купи этого персонажа! 🔒');
+    return;
+  }
+
   setCharacter(charId);
   changeTrack(state.char.music);
-  renderCharacter();
+  renderCharacter();       // внутри вызывает refreshCharGridState()
   updateRank();
   showToast(`Выбран: ${state.char.name}`);
 }
@@ -255,29 +242,25 @@ function _onSaveNick() {
     return;
   }
 
-  // Проверка: можно ли менять ник
   const alreadyHasNick = localStorage.getItem('svinkoiny_nick_locked') === 'true';
-
   if (alreadyHasNick) {
     showToast('Ник уже закреплён навсегда!');
     return;
   }
 
   saveNickname(nick);
-  
-  // Закрепляем ник навсегда
+
   localStorage.setItem('svinkoiny_nick_locked', 'true');
-  
+
   forceSendScore();
   showToast(`Ник закреплён навсегда: ${nick} 👑`);
-  
-  // Блокируем поле ввода
+
   if (DOM.lbNickInput) {
     DOM.lbNickInput.disabled = true;
-    DOM.lbNickInput.value = nick;
+    DOM.lbNickInput.value    = nick;
   }
-  
+
   if (DOM.lbSaveBtn) DOM.lbSaveBtn.disabled = true;
-  
+
   loadAndRenderLeaderboard();
 }
