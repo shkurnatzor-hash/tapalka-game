@@ -134,11 +134,14 @@ function _render(entries) {
     const topClass = place <= 3 ? ` lb-top-${place}` : '';
     const meClass  = isMe ? ' lb-me' : '';
 
+    // Иконка свинкойна — та же картинка, что у главного counter (#counterImg)
+    const coinIcon = `<img class="lb-coin-icon" src="./assets/images/govno.png" alt="coin">`;
+
     html += `
       <div class="lb-row${topClass}${meClass}" data-place="${place}">
         <span class="lb-pos">${placeStr}</span>
         <span class="lb-nick">${nick}${isMe ? ' <span class="lb-you">you</span>' : ''}</span>
-        <span class="lb-score">${score} 🐷</span>
+        <span class="lb-score">${score} ${coinIcon}</span>
       </div>`;
   });
 
