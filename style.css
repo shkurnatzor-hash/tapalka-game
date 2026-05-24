@@ -179,6 +179,32 @@
   --t-coinburst-shadow: rgba(0,200,0,.6);
 }
 
+/* ── ДЖУНГЛИ ТЕМА (Тимон и Пумба) ── */
+/*
+ * Палитра: тёплая тропическая — глубокий оливково-коричневый фон,
+ * золотисто-янтарные акценты, сочный саванный зелёный для активных кнопок.
+ * Вдохновлено африканской саванной: закаты, трава, земля.
+ */
+#gameWrap[data-theme="jungle"] {
+  --t-menu-bg:          #1a1205;
+  --t-menu-border:      rgba(210,170,80,.18);
+  --t-btn-bg:           #1a1205;
+  --t-btn-hover:        #3d2e10;
+  --t-btn-active-from:  #7a5c18;
+  --t-btn-active-to:    #d4a030;
+  --t-btn-active-glow:  rgba(212,160,48,.50);
+  --t-upgrade-from:     #4a7a1a;
+  --t-upgrade-to:       #7dc030;
+  --t-upgrade-glow:     rgba(100,185,40,.50);
+  --t-accent:           #e8b840;
+  --t-tab-active-from:  #7a5c18;
+  --t-tab-active-to:    #d4a030;
+  --t-counter-color:    #f0c84a;
+  --t-counter-shadow:   rgba(240,200,74,.65);
+  --t-coinburst-color:  #f0c84a;
+  --t-coinburst-shadow: rgba(220,160,20,.7);
+}
+
 
 /* RESET */
 *, *::before, *::after {
@@ -905,8 +931,34 @@ body::before {
 
 .lb-pos  { font-size: 18px; min-width: 28px; }
 .lb-nick { flex: 1; color: #fff; font-weight: 800; font-size: 15px; }
-.lb-score{ color: var(--gold); font-weight: 900; font-size: 14px; }
+.lb-score{
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--gold);
+  font-weight: 900;
+  font-size: 14px;
+}
 .lb-empty{ color: var(--text-dim); text-align: center; padding: 20px; }
+
+/* Иконка свинкойна в лидерборде — та же монета, что у главного счётчика */
+.lb-coin-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(255,215,0,.7));
+  /* Тот же spinCoin что у #counterImg, но меньше и медленнее */
+  animation: spinCoin 3s linear infinite;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .lb-coin-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
 
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(8px); }
