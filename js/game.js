@@ -1,11 +1,11 @@
 /**
- * game.js  —  точка входа (ES-модуль) v2
+ * game.js  —  точка входа (ES-модуль) v3
  *
- * ИЗМЕНЕНИЯ v2:
- *  1. _onCharSelect теперь проверяет purchasedSkins перед установкой персонажа
- *     (защита на случай прямого вызова с незакрытым скином)
- *  2. refreshCharGridState() вызывается после выбора персонажа
- *  3. Импорты обновлены (purchaseSkin удалён — теперь только в ui.js)
+ * ИЗМЕНЕНИЯ v3:
+ *  1. _initTelegramSwipeLock() — production-fix для сворачивания Telegram Mini App
+ *     при мультитаче: блокирует overscroll/swipe-to-dismiss на всех уровнях DOM
+ *  2. Multitouch-safe tap handler: обрабатывает все одновременные касания
+ *  3. Telegram.WebApp.disableVerticalSwipes() + expand() при запуске
  */
 
 import { CONFIG } from './config.js';
@@ -61,6 +61,7 @@ import {
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
+    _initTelegramSwipeLock(); // ← ПЕРВЫМ: блокируем свайп до любых событий
     cacheDom();
     buildCharGrid(_onCharSelect);
     initRanks(DOM.rankEl, DOM.rankPopup);
@@ -159,11 +160,37 @@ function _bindEvents() {
 
 
 // ─────────────────────────────────────────────────────────────
-// TAP
+// TAP  (multitouch-safe)
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * Набор активных pointerIds — позволяет регистрировать каждый палец ровно один раз
+ * и не дублировать addScore при повторных pointermove/поinterup.
+ */
+const _activePointers = new Set();
+
 function _onTap(e) {
-  e.preventDefault(); // блокирует системный зум при частом тапе
+  e.preventDefault(); // блокирует системный зум и браузерный scroll при мультитаче
+
+  // Мультитач: каждый pointerId обрабатывается ровно один раз (при pointerdown)
+  if (_activePointers.has(e.pointerId)) return;
+  _activePointers.add(e.pointerId);
+
+  // Очищаем после отпускания пальца
+  const cleanup = (up) => {
+    if (up.pointerId === e.pointerId) {
+      _activePointers.delete(e.pointerId);
+      DOM.characterWrapper?.removeEventListener('pointerup',     cleanup);
+      DOM.characterWrapper?.removeEventListener('pointercancel', cleanup);
+      document.removeEventListener('pointerup',     cleanup);
+      document.removeEventListener('pointercancel', cleanup);
+    }
+  };
+  // Слушаем и на characterWrapper и на document — палец может съехать за пределы элемента
+  DOM.characterWrapper?.addEventListener('pointerup',     cleanup, { once: false });
+  DOM.characterWrapper?.addEventListener('pointercancel', cleanup, { once: false });
+  document.addEventListener('pointerup',     cleanup, { once: false });
+  document.addEventListener('pointercancel', cleanup, { once: false });
 
   const x = e.clientX;
   const y = e.clientY;
@@ -176,10 +203,102 @@ function _onTap(e) {
 
   updateRank();
 
-  // Запускаем музыку при первом взаимодействии (политика браузеров)
   startMusicOnce(state.char.music);
-
   throttledSendScore();
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// TELEGRAM SWIPE LOCK  (production-ready, iOS + Android)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Полностью блокирует свайп-to-dismiss Telegram Mini App при интенсивном мультитаче.
+ *
+ * Стратегия (многослойная защита):
+ *  1. Telegram WebApp API  — disableVerticalSwipes() + expand() (официальный способ)
+ *  2. CSS                  — touch-action: none + overscroll-behavior: none (уже в style.css)
+ *  3. JS touchmove         — preventDefault на document (passive: false) блокирует
+ *                            нативный scroll/overscroll WebView
+ *  4. JS touchstart        — preventDefault предотвращает инициацию свайпа
+ *  5. gesturestart/change  — блокирует iOS pinch-zoom gesture (Safari-специфично)
+ *  6. contextmenu          — блокирует долгое нажатие → контекстное меню → лаг
+ *  7. selectstart          — отключает выделение текста (вызывает "залипание" на Android)
+ */
+function _initTelegramSwipeLock() {
+  // ── 1. Telegram WebApp API ───────────────────────────────────────────────
+  try {
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      // Разворачиваем на весь экран — убирает зону свайпа в шапке
+      tg.expand?.();
+      // Официальный метод отключения вертикального свайпа (Bot API 7.7+)
+      tg.disableVerticalSwipes?.();
+      // Отключаем кнопку закрытия жестом (если поддерживается)
+      tg.setHeaderColor?.('#000000');
+    }
+  } catch (_) {}
+
+  // ── 2. Блокируем touchmove на всём document (passive: false обязателен) ─
+  const blockTouchMove = (e) => {
+    // Разрешаем scroll внутри overflow-scroll элементов (leaderboard, upgrade screen)
+    if (_isScrollableTarget(e.target)) return;
+    // Блокируем всё остальное — это и есть свайп-to-dismiss
+    if (e.cancelable) e.preventDefault();
+  };
+
+  document.addEventListener('touchmove', blockTouchMove, { passive: false });
+
+  // ── 3. Блокируем touchstart с несколькими касаниями ─────────────────────
+  // При 2+ пальцах Telegram может интерпретировать движение как dismiss-жест
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) {
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+
+  // ── 4. iOS Safari: блокируем pinch-zoom gesture ──────────────────────────
+  document.addEventListener('gesturestart',  (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('gestureend',    (e) => e.preventDefault(), { passive: false });
+
+  // ── 5. Блокируем контекстное меню (долгое нажатие) ───────────────────────
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // ── 6. Блокируем выделение текста ────────────────────────────────────────
+  document.addEventListener('selectstart', (e) => e.preventDefault());
+
+  // ── 7. Блокируем колёсный скролл на игровом обёртке ─────────────────────
+  document.getElementById('gameWrap')?.addEventListener('wheel', (e) => {
+    e.preventDefault();
+  }, { passive: false });
+}
+
+/**
+ * Проверяет, является ли элемент или его предок скроллируемым контейнером.
+ * Это позволяет пользователю скроллить leaderboard и upgrade screen,
+ * при этом блокируя системный dismiss-свайп.
+ *
+ * @param {EventTarget} target
+ * @returns {boolean}
+ */
+function _isScrollableTarget(target) {
+  let el = target;
+  const scrollableIds = new Set(['upgradeScreen', 'leaderboardScreen', 'charSelect', 'lbContainer']);
+
+  while (el && el !== document.body) {
+    if (el.id && scrollableIds.has(el.id)) return true;
+    // Проверяем overflow-y через computed style (для динамических элементов)
+    try {
+      const style = window.getComputedStyle(el);
+      const overflowY = style.overflowY;
+      if ((overflowY === 'scroll' || overflowY === 'auto') && el.scrollHeight > el.clientHeight) {
+        return true;
+      }
+    } catch (_) {}
+    el = el.parentElement;
+  }
+  return false;
 }
 
 
