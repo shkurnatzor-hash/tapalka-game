@@ -8,34 +8,6 @@
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 💰 ЦЕНЫ ПЕРСОНАЖЕЙ
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *
- * price: 0     → бесплатный (barsuk)
- * price: 52    → demomaks, rastamaks, boroda
- * price: 67    → maksvin, kotomaks, panin, saygak
- * price: 50    → tajik, timon (и все прочие по умолчанию)
- *
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 📐 КАК ДВИГАТЬ ПЕРСОНАЖА ВНИЗ (позиция)
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *
- * Базовая позиция #characterWrapper задана в style.css:
- *   bottom: calc(var(--menu-h) + 24px)
- *
- * Чтобы опустить КОНКРЕТНОГО персонажа вниз — используй поле `bottomOffset`.
- * Это число в пикселях, которое ВЫЧИТАЕТСЯ из базового bottom.
- * Чем БОЛЬШЕ значение → тем НИЖЕ персонаж.
- *
- *   bottomOffset: 0   → стандартная позиция
- *   bottomOffset: 20  → опускает вниз ~1 см
- *   bottomOffset: 38  → опускает вниз ~2 см
- *
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * ⏱ КАК УПРАВЛЯТЬ СКОРОСТЬЮ TAP-АНИМАЦИИ
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *
- * pressDuration (мс) — время показа tap-картинки (pressSrc).
- *   80ms  → быстро (дефолт)
- *   180ms → оптимально — заметно, без задержки
  */
 
 export const CHARACTERS = [
@@ -177,7 +149,7 @@ export const CHARACTERS = [
     music: './assets/sounds/pyk.mp3',
     background: './assets/images/pysto.jpg',
     scale: 1.0,
-    theme: null,
+    theme: 'jungle',             // тропическая савanna-тема
     effects: { fireCounter: false, fireMenu: false }
   },
 
