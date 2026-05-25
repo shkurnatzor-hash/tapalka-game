@@ -1,9 +1,8 @@
 /**
  * characters.js
- * UPDATED v2:
- *  - Добавлено поле price (стоимость в свинкойнах) для каждого персонажа
- *  - barsuk: price = 0 (бесплатный, разблокирован по умолчанию)
- *  - Добавлен новый персонаж «тимон и пумба» (id: timon, category: panin)
+ * UPDATED v3:
+ *  - Тема персонажа «Тимон и Пумба» изменена с 'jungle' → 'choco'
+ *    (молочно-шоколадная палитра, тёплые коричневые тона)
  *
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 💰 ЦЕНЫ ПЕРСОНАЖЕЙ
@@ -36,6 +35,19 @@
  * pressDuration (мс) — время показа tap-картинки (pressSrc).
  *   80ms  → быстро (дефолт)
  *   180ms → оптимально — заметно, без задержки
+ *
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 🎨 ТЕМЫ ПЕРСОНАЖЕЙ
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *
+ * null      → зелёная тема (default)
+ * 'red'     → красная тема (demomaks)
+ * 'brown'   → коричневая (kotomaks)
+ * 'orange'  → оранжевая (tajik)
+ * 'grey'    → серая (saygak)
+ * 'darkgrey'→ тёмно-серая (boroda)
+ * 'rasta'   → раста (rastamaks)
+ * 'choco'   → молочный шоколад (timon) ← НОВАЯ
  */
 
 export const CHARACTERS = [
@@ -164,11 +176,12 @@ export const CHARACTERS = [
     effects: { fireCounter: false, fireMenu: false }
   },
 
-  // ── ТИМОН И ПУМБА (NEW) ──
+  // ── ТИМОН И ПУМБА ──
+  // theme: 'choco' — молочно-шоколадная палитра (тёплые карамельные тона)
   {
     id: 'timon',
     name: 'Тимон и Пумба',
-    category: 'panin',           // рядом с Паниным
+    category: 'panin',
     price: 50,
     type: 'image',
     src: './assets/images/tim.png',
@@ -177,7 +190,7 @@ export const CHARACTERS = [
     music: './assets/sounds/pyk.mp3',
     background: './assets/images/pysto.jpg',
     scale: 1.0,
-    theme: 'jungle',             // тропическая савanna-тема
+    theme: 'choco',           // ← ИЗМЕНЕНО: jungle → choco
     effects: { fireCounter: false, fireMenu: false }
   },
 
