@@ -43,14 +43,25 @@ export function cacheDom() {
   DOM.upgradeMsg       = document.getElementById('upgradeMsg');
   DOM.charSelectWrap   = document.getElementById('charSelect');
   DOM.lbContainer      = document.getElementById('lbContainer');
-  DOM.lbNickInput      = document.getElementById('lbNickInput');
-  DOM.lbSaveBtn        = document.getElementById('lbSaveBtn');
+  DOM.lbProfileBlock   = document.getElementById('lbProfileBlock');
   DOM.menuBtns         = Array.from(document.querySelectorAll('.menuBtn'));
   DOM.upgradeTabs      = Array.from(document.querySelectorAll('.upgradeTab'));
   DOM.upgradeContents  = Array.from(document.querySelectorAll('.upgradeContent'));
   DOM.loader           = document.getElementById('loader');
   DOM.skinCategoryBtns = Array.from(document.querySelectorAll('.skinCatBtn'));
   DOM.skinPlaceholder  = document.getElementById('skinPlaceholder');
+
+  // Nick modal
+  DOM.nickModalOverlay = document.getElementById('nickModalOverlay');
+  DOM.nickModalBox     = document.getElementById('nickModalBox');
+  DOM.nickModalClose   = document.getElementById('nickModalClose');
+  DOM.nickModalTitle   = document.getElementById('nickModalTitle');
+  DOM.nickModalSubtitle= document.getElementById('nickModalSubtitle');
+  DOM.nickModalInput   = document.getElementById('nickModalInput');
+  DOM.nickModalError   = document.getElementById('nickModalError');
+  DOM.nickModalSubmit  = document.getElementById('nickModalSubmit');
+  DOM.nickModalLabel   = document.getElementById('nickModalSubmitLabel');
+  DOM.nickModalSpinner = document.getElementById('nickModalSpinner');
 
   // GPU-hint
   if (DOM.characterWrapper) {
@@ -158,12 +169,19 @@ export function showTab(name) {
   const isUpgrade     = name === 'upgrade';
   const isLeaderboard = name === 'leaderboard';
 
+  // Скрываем персонажа и счётчик когда открыт любой экран поверх игры.
+  // visibility: hidden вместо opacity: 0 — элемент не участвует в z-index стекинге
+  // и не "просвечивает" сквозь полупрозрачные overlay-экраны.
   if (DOM.characterWrapper) {
-    DOM.characterWrapper.style.opacity = isGame ? '1' : '0';
+    DOM.characterWrapper.style.opacity       = isGame ? '1' : '0';
+    DOM.characterWrapper.style.visibility    = isGame ? 'visible' : 'hidden';
     DOM.characterWrapper.style.pointerEvents = isGame ? 'auto' : 'none';
   }
-  if (DOM.counter) DOM.counter.style.opacity = isGame ? '1' : '0';
-  if (DOM.rankEl)  DOM.rankEl.style.display  = isGame ? '' : 'none';
+  if (DOM.counter) {
+    DOM.counter.style.opacity    = isGame ? '1' : '0';
+    DOM.counter.style.visibility = isGame ? 'visible' : 'hidden';
+  }
+  if (DOM.rankEl) DOM.rankEl.style.display = isGame ? '' : 'none';
 
   if (DOM.upgradeScreen)     DOM.upgradeScreen.classList.toggle('active', isUpgrade);
   if (DOM.leaderboardScreen) DOM.leaderboardScreen.classList.toggle('active', isLeaderboard);
@@ -176,8 +194,6 @@ export function showTab(name) {
     );
   });
 
-  // При открытии вкладки скинов — обновляем состояние карточек
-  // (баланс мог измениться пока вкладка была закрыта)
   if (isUpgrade) {
     refreshCharGridState();
   }
@@ -429,4 +445,200 @@ function _applyEffects(effects) {
     btn.classList.toggle('fire-menu',     effects.fireMenu);
     btn.classList.toggle('fire-menu-btn', effects.fireMenu);
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LEADERBOARD PROFILE BLOCK
+// Показывает текущий ник игрока или предложение зарегистрироваться.
+// Рендерится в #lbProfileBlock каждый раз при открытии leaderboard.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Обновить блок профиля в leaderboard screen.
+ * Если ник есть — показываем его + кнопку смены.
+ * Если нет — кнопку регистрации.
+ */
+export function updateLbProfileUI() {
+  const el = DOM.lbProfileBlock;
+  if (!el) return;
+
+  const nick = state.nickname;
+
+  if (nick) {
+    el.innerHTML = `
+      <div class="lb-profile">
+        <div class="lb-profile-info">
+          <span class="lb-profile-avatar">🐷</span>
+          <div class="lb-profile-texts">
+            <span class="lb-profile-label">Твой ник</span>
+            <span class="lb-profile-nick">${_escHtml(nick)}</span>
+          </div>
+        </div>
+        <button id="lbChangeNickBtn" class="lb-profile-change-btn">
+          ✏️ Сменить
+        </button>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="lb-profile lb-profile--empty">
+        <p class="lb-profile-hint">Зарегистрируй ник, чтобы попасть в рейтинг!</p>
+        <button id="lbSetNickBtn" class="lb-profile-set-btn">
+          👤 Выбрать ник
+        </button>
+      </div>`;
+  }
+}
+
+function _escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NICK MODAL
+// Красивое модальное окно выбора/смены ника с анимацией и валидацией.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _nickSubmitCallback = null;
+let _nickModalOpen = false;
+
+/**
+ * Открыть модальное окно выбора/смены ника.
+ * @param {string|null} currentNick  — текущий ник (null = первая регистрация)
+ * @param {Function}    onSubmit     — async callback(rawNick) → { ok, error? }
+ */
+export function showNickModal(currentNick, onSubmit) {
+  if (_nickModalOpen) return;
+  _nickSubmitCallback = onSubmit;
+
+  const isChange = !!currentNick;
+
+  // Настраиваем заголовок
+  if (DOM.nickModalTitle)    DOM.nickModalTitle.textContent    = isChange ? 'Сменить ник' : 'Выбери ник';
+  if (DOM.nickModalSubtitle) DOM.nickModalSubtitle.textContent = isChange
+    ? `Текущий ник: ${currentNick}`
+    : 'Ник виден всем в рейтинге';
+  if (DOM.nickModalLabel)    DOM.nickModalLabel.textContent    = isChange ? 'Сменить' : 'Сохранить';
+
+  // Сбрасываем поле и ошибку
+  if (DOM.nickModalInput) {
+    DOM.nickModalInput.value = '';
+    DOM.nickModalInput.disabled = false;
+    DOM.nickModalInput.focus();
+  }
+  _setModalError(null);
+  _setModalLoading(false);
+
+  // Показываем overlay с анимацией
+  const overlay = DOM.nickModalOverlay;
+  const box     = DOM.nickModalBox;
+  if (!overlay || !box) return;
+
+  overlay.classList.remove('hidden');
+  // Небольшой delay чтобы CSS transition сработал после display:block
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      overlay.classList.add('nick-modal--visible');
+      box.classList.add('nick-modal-box--visible');
+    });
+  });
+
+  _nickModalOpen = true;
+
+  // Закрытие по крестику
+  DOM.nickModalClose?.addEventListener('click', _closeNickModal, { once: true });
+  // Закрытие по клику на overlay (не на box)
+  overlay.addEventListener('click', _onOverlayClick);
+  // Enter в поле = submit
+  DOM.nickModalInput?.addEventListener('keydown', _onModalKeydown);
+  // Кнопка submit
+  DOM.nickModalSubmit?.addEventListener('click', _onModalSubmit, { once: false });
+}
+
+function _onOverlayClick(e) {
+  if (e.target === DOM.nickModalOverlay) _closeNickModal();
+}
+
+function _onModalKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    _onModalSubmit();
+  }
+  // Esc
+  if (e.key === 'Escape') _closeNickModal();
+}
+
+async function _onModalSubmit() {
+  const raw = DOM.nickModalInput?.value ?? '';
+
+  if (!raw.trim()) {
+    _setModalError('Введи ник');
+    _shakeInput();
+    return;
+  }
+
+  _setModalLoading(true);
+  _setModalError(null);
+
+  const result = await _nickSubmitCallback?.(raw);
+
+  _setModalLoading(false);
+
+  if (result?.ok) {
+    _closeNickModal();
+  } else {
+    _setModalError(result?.error ?? 'Произошла ошибка');
+    _shakeInput();
+  }
+}
+
+function _closeNickModal() {
+  const overlay = DOM.nickModalOverlay;
+  const box     = DOM.nickModalBox;
+  if (!overlay) return;
+
+  overlay.classList.remove('nick-modal--visible');
+  box?.classList.remove('nick-modal-box--visible');
+
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    _nickModalOpen = false;
+  }, 280);
+
+  // Убираем все listeners
+  overlay.removeEventListener('click', _onOverlayClick);
+  DOM.nickModalInput?.removeEventListener('keydown', _onModalKeydown);
+  DOM.nickModalSubmit?.removeEventListener('click', _onModalSubmit);
+  DOM.nickModalClose?.removeEventListener('click', _closeNickModal);
+}
+
+function _setModalError(msg) {
+  const el = DOM.nickModalError;
+  if (!el) return;
+  if (msg) {
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+    el.textContent = '';
+  }
+}
+
+function _setModalLoading(isLoading) {
+  if (DOM.nickModalSubmit)  DOM.nickModalSubmit.disabled  = isLoading;
+  if (DOM.nickModalLabel)   DOM.nickModalLabel.style.opacity  = isLoading ? '0' : '1';
+  if (DOM.nickModalSpinner) DOM.nickModalSpinner.classList.toggle('hidden', !isLoading);
+  if (DOM.nickModalInput)   DOM.nickModalInput.disabled   = isLoading;
+}
+
+function _shakeInput() {
+  const input = DOM.nickModalInput;
+  if (!input) return;
+  input.classList.remove('nick-input-shake');
+  void input.offsetWidth; // reflow
+  input.classList.add('nick-input-shake');
 }
