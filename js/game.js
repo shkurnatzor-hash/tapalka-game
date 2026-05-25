@@ -1,11 +1,11 @@
 /**
- * game.js  —  точка входа (ES-модуль) v3
+ * game.js  —  точка входа (ES-модуль) v2
  *
- * ИЗМЕНЕНИЯ v3:
- *  1. _initTelegramSwipeLock() — production-fix для сворачивания Telegram Mini App
- *     при мультитаче: блокирует overscroll/swipe-to-dismiss на всех уровнях DOM
- *  2. Multitouch-safe tap handler: обрабатывает все одновременные касания
- *  3. Telegram.WebApp.disableVerticalSwipes() + expand() при запуске
+ * ИЗМЕНЕНИЯ v2:
+ *  1. _onCharSelect теперь проверяет purchasedSkins перед установкой персонажа
+ *     (защита на случай прямого вызова с незакрытым скином)
+ *  2. refreshCharGridState() вызывается после выбора персонажа
+ *  3. Импорты обновлены (purchaseSkin удалён — теперь только в ui.js)
  */
 
 import { CONFIG } from './config.js';
@@ -34,7 +34,10 @@ import {
   initLeaderboard,
   throttledSendScore,
   forceSendScore,
-  loadAndRenderLeaderboard
+  loadAndRenderLeaderboard,
+  registerNick,
+  changeNick,
+  validateNick
 } from './leaderboard.js';
 
 import {
@@ -51,7 +54,9 @@ import {
   showToast,
   buildCharGrid,
   refreshCharGridState,
-  hideLoader
+  hideLoader,
+  showNickModal,
+  updateLbProfileUI
 } from './ui.js';
 
 
@@ -61,7 +66,6 @@ import {
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    _initTelegramSwipeLock(); // ← ПЕРВЫМ: блокируем свайп до любых событий
     cacheDom();
     buildCharGrid(_onCharSelect);
     initRanks(DOM.rankEl, DOM.rankPopup);
@@ -72,6 +76,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     _renderAll();
     _bindEvents();
+
+    // Инициализируем UI профиля (показывает текущий ник если есть)
+    updateLbProfileUI();
 
     setTimeout(() => hideLoader(), CONFIG.LOADER_DURATION_MS || 2500);
 
@@ -89,11 +96,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('GAME INIT ERROR:', err);
     const loader = document.getElementById('loader');
     if (loader) loader.style.display = 'none';
-  }
-
-  // Блокировка ника после первого сохранения
-  if (localStorage.getItem('svinkoiny_nick_locked') === 'true' && DOM.lbSaveBtn) {
-    DOM.lbSaveBtn.disabled = true;
   }
 });
 
@@ -128,6 +130,7 @@ function _bindEvents() {
   DOM.menuBtns?.[1]?.addEventListener('click', () => showTab('game'));
   DOM.menuBtns?.[2]?.addEventListener('click', () => {
     showTab('leaderboard');
+    updateLbProfileUI();
     loadAndRenderLeaderboard();
   });
 
@@ -146,51 +149,27 @@ function _bindEvents() {
   // ── UPGRADE ──
   DOM.upgradeBtn?.addEventListener('click', _onUpgrade);
 
-  // ── NICKNAME ──
-  DOM.lbSaveBtn?.addEventListener('click', _onSaveNick);
-  DOM.lbNickInput?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') _onSaveNick();
-  });
-
   // ── REFRESH LB ──
   document
     .getElementById('lbRefreshBtn')
     ?.addEventListener('click', loadAndRenderLeaderboard);
+
+  // ── NICK MODAL — делегированный обработчик для динамических кнопок ──
+  // Кнопки "Задать ник" и "Сменить ник" создаются динамически в updateLbProfileUI()
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'lbSetNickBtn' || e.target.id === 'lbChangeNickBtn') {
+      showNickModal(state.nickname, _onNickSubmit);
+    }
+  });
 }
 
 
 // ─────────────────────────────────────────────────────────────
-// TAP  (multitouch-safe)
+// TAP
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Набор активных pointerIds — позволяет регистрировать каждый палец ровно один раз
- * и не дублировать addScore при повторных pointermove/поinterup.
- */
-const _activePointers = new Set();
-
 function _onTap(e) {
-  e.preventDefault(); // блокирует системный зум и браузерный scroll при мультитаче
-
-  // Мультитач: каждый pointerId обрабатывается ровно один раз (при pointerdown)
-  if (_activePointers.has(e.pointerId)) return;
-  _activePointers.add(e.pointerId);
-
-  // Очищаем после отпускания пальца
-  const cleanup = (up) => {
-    if (up.pointerId === e.pointerId) {
-      _activePointers.delete(e.pointerId);
-      DOM.characterWrapper?.removeEventListener('pointerup',     cleanup);
-      DOM.characterWrapper?.removeEventListener('pointercancel', cleanup);
-      document.removeEventListener('pointerup',     cleanup);
-      document.removeEventListener('pointercancel', cleanup);
-    }
-  };
-  // Слушаем и на characterWrapper и на document — палец может съехать за пределы элемента
-  DOM.characterWrapper?.addEventListener('pointerup',     cleanup, { once: false });
-  DOM.characterWrapper?.addEventListener('pointercancel', cleanup, { once: false });
-  document.addEventListener('pointerup',     cleanup, { once: false });
-  document.addEventListener('pointercancel', cleanup, { once: false });
+  e.preventDefault(); // блокирует системный зум при частом тапе
 
   const x = e.clientX;
   const y = e.clientY;
@@ -203,102 +182,10 @@ function _onTap(e) {
 
   updateRank();
 
+  // Запускаем музыку при первом взаимодействии (политика браузеров)
   startMusicOnce(state.char.music);
+
   throttledSendScore();
-}
-
-
-// ─────────────────────────────────────────────────────────────
-// TELEGRAM SWIPE LOCK  (production-ready, iOS + Android)
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Полностью блокирует свайп-to-dismiss Telegram Mini App при интенсивном мультитаче.
- *
- * Стратегия (многослойная защита):
- *  1. Telegram WebApp API  — disableVerticalSwipes() + expand() (официальный способ)
- *  2. CSS                  — touch-action: none + overscroll-behavior: none (уже в style.css)
- *  3. JS touchmove         — preventDefault на document (passive: false) блокирует
- *                            нативный scroll/overscroll WebView
- *  4. JS touchstart        — preventDefault предотвращает инициацию свайпа
- *  5. gesturestart/change  — блокирует iOS pinch-zoom gesture (Safari-специфично)
- *  6. contextmenu          — блокирует долгое нажатие → контекстное меню → лаг
- *  7. selectstart          — отключает выделение текста (вызывает "залипание" на Android)
- */
-function _initTelegramSwipeLock() {
-  // ── 1. Telegram WebApp API ───────────────────────────────────────────────
-  try {
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      // Разворачиваем на весь экран — убирает зону свайпа в шапке
-      tg.expand?.();
-      // Официальный метод отключения вертикального свайпа (Bot API 7.7+)
-      tg.disableVerticalSwipes?.();
-      // Отключаем кнопку закрытия жестом (если поддерживается)
-      tg.setHeaderColor?.('#000000');
-    }
-  } catch (_) {}
-
-  // ── 2. Блокируем touchmove на всём document (passive: false обязателен) ─
-  const blockTouchMove = (e) => {
-    // Разрешаем scroll внутри overflow-scroll элементов (leaderboard, upgrade screen)
-    if (_isScrollableTarget(e.target)) return;
-    // Блокируем всё остальное — это и есть свайп-to-dismiss
-    if (e.cancelable) e.preventDefault();
-  };
-
-  document.addEventListener('touchmove', blockTouchMove, { passive: false });
-
-  // ── 3. Блокируем touchstart с несколькими касаниями ─────────────────────
-  // При 2+ пальцах Telegram может интерпретировать движение как dismiss-жест
-  document.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 1) {
-      if (e.cancelable) e.preventDefault();
-    }
-  }, { passive: false });
-
-  // ── 4. iOS Safari: блокируем pinch-zoom gesture ──────────────────────────
-  document.addEventListener('gesturestart',  (e) => e.preventDefault(), { passive: false });
-  document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
-  document.addEventListener('gestureend',    (e) => e.preventDefault(), { passive: false });
-
-  // ── 5. Блокируем контекстное меню (долгое нажатие) ───────────────────────
-  document.addEventListener('contextmenu', (e) => e.preventDefault());
-
-  // ── 6. Блокируем выделение текста ────────────────────────────────────────
-  document.addEventListener('selectstart', (e) => e.preventDefault());
-
-  // ── 7. Блокируем колёсный скролл на игровом обёртке ─────────────────────
-  document.getElementById('gameWrap')?.addEventListener('wheel', (e) => {
-    e.preventDefault();
-  }, { passive: false });
-}
-
-/**
- * Проверяет, является ли элемент или его предок скроллируемым контейнером.
- * Это позволяет пользователю скроллить leaderboard и upgrade screen,
- * при этом блокируя системный dismiss-свайп.
- *
- * @param {EventTarget} target
- * @returns {boolean}
- */
-function _isScrollableTarget(target) {
-  let el = target;
-  const scrollableIds = new Set(['upgradeScreen', 'leaderboardScreen', 'charSelect', 'lbContainer']);
-
-  while (el && el !== document.body) {
-    if (el.id && scrollableIds.has(el.id)) return true;
-    // Проверяем overflow-y через computed style (для динамических элементов)
-    try {
-      const style = window.getComputedStyle(el);
-      const overflowY = style.overflowY;
-      if ((overflowY === 'scroll' || overflowY === 'auto') && el.scrollHeight > el.clientHeight) {
-        return true;
-      }
-    } catch (_) {}
-    el = el.parentElement;
-  }
-  return false;
 }
 
 
@@ -345,41 +232,45 @@ function _onCharSelect(charId) {
 
 
 // ─────────────────────────────────────────────────────────────
-// NICKNAME
+// NICKNAME SUBMIT (вызывается из modal в ui.js)
 // ─────────────────────────────────────────────────────────────
 
-function _onSaveNick() {
-  const nick = DOM.lbNickInput?.value.trim();
+/**
+ * Callback из модального окна выбора/смены ника.
+ * @param {string} rawNick — введённый пользователем ник
+ * @returns {Promise<{ ok: boolean, error?: string }>}
+ */
+async function _onNickSubmit(rawNick) {
+  const oldNick = state.nickname;
+  const isChange = !!oldNick;
 
-  if (!nick || nick.length < 2) {
-    showToast('Введи ник (минимум 2 символа)');
-    return;
+  let result;
+
+  if (isChange) {
+    result = await changeNick(rawNick, oldNick);
+  } else {
+    result = await registerNick(rawNick);
   }
 
-  if (nick.length > 20) {
-    showToast('Ник слишком длинный (макс 20)');
-    return;
+  if (!result.ok) {
+    return result; // modal покажет ошибку
   }
 
-  const alreadyHasNick = localStorage.getItem('svinkoiny_nick_locked') === 'true';
-  if (alreadyHasNick) {
-    showToast('Ник уже закреплён навсегда!');
-    return;
-  }
+  // Сохраняем в state + localStorage
+  saveNickname(result.nick, result.normKey);
 
-  saveNickname(nick);
+  // Обновляем UI профиля в leaderboard
+  updateLbProfileUI();
 
-  localStorage.setItem('svinkoiny_nick_locked', 'true');
-
+  // Немедленно синхронизируем счёт
   forceSendScore();
-  showToast(`Ник закреплён навсегда: ${nick} 👑`);
 
-  if (DOM.lbNickInput) {
-    DOM.lbNickInput.disabled = true;
-    DOM.lbNickInput.value    = nick;
-  }
-
-  if (DOM.lbSaveBtn) DOM.lbSaveBtn.disabled = true;
-
+  // Обновляем таблицу
   loadAndRenderLeaderboard();
+
+  const verb = isChange ? 'Ник изменён' : 'Ник сохранён';
+  showToast(`${verb}: ${result.nick} 👑`);
+  playSfx('./assets/sounds/rankup.mp3');
+
+  return { ok: true };
 }
