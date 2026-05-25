@@ -197,25 +197,8 @@
 
       </p>
 
-      <div class="lb-nick-wrap">
-
-        <input
-          id="lbNickInput"
-          type="text"
-          placeholder="Твой ник"
-          maxlength="20"
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-          spellcheck="false">
-
-        <button id="lbSaveBtn">
-
-          💾 Сохранить
-
-        </button>
-
-      </div>
+      <!-- Профиль игрока: показывает текущий ник или предлагает зарегистрироваться -->
+      <div id="lbProfileBlock"></div>
 
       <button id="lbRefreshBtn">
 
@@ -225,6 +208,39 @@
 
       <div id="lbContainer"></div>
 
+    </div>
+
+    <!-- =========================
+         NICK MODAL
+    ========================== -->
+    <div id="nickModalOverlay" class="nick-modal-overlay hidden" aria-modal="true" role="dialog">
+      <div id="nickModalBox" class="nick-modal-box">
+
+        <button id="nickModalClose" class="nick-modal-close" aria-label="Закрыть">✕</button>
+
+        <div class="nick-modal-icon">🐷</div>
+        <h2 id="nickModalTitle" class="nick-modal-title">Выбери ник</h2>
+        <p  id="nickModalSubtitle" class="nick-modal-subtitle">Ник виден всем в рейтинге</p>
+
+        <input
+          id="nickModalInput"
+          class="nick-modal-input"
+          type="text"
+          placeholder="Введи ник..."
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false">
+
+        <p id="nickModalError" class="nick-modal-error hidden"></p>
+
+        <button id="nickModalSubmit" class="nick-modal-submit">
+          <span id="nickModalSubmitLabel">Сохранить</span>
+          <span id="nickModalSpinner" class="nick-modal-spinner hidden"></span>
+        </button>
+
+      </div>
     </div>
 
     <!-- =========================
