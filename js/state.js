@@ -1,12 +1,10 @@
 /**
- * state.js
- * Единственное место хранения состояния игры.
+ * state.js — v3 (Unique Nicknames support)
  *
- * ДОБАВЛЕНО v2:
- *  - purchasedSkins: список разблокированных персонажей (default: ['barsuk'])
- *  - purchaseSkin(id): покупает скин, списывает монеты, сохраняет в localStorage
- *  - barsuk гарантированно всегда в списке (защита от corrupted localStorage)
- *  - Edge case: если сохранённый charId не куплен — сбрасываем на barsuk
+ * ИЗМЕНЕНИЯ v3:
+ *  - Убрана жёсткая блокировка ника (nick_locked) — теперь ник можно менять
+ *  - Добавлен LS.NICK_KEY — нормализованный ключ текущего ника (для Firebase)
+ *  - saveNickname(nick, key) теперь сохраняет и displayNick и normKey
  */
 
 import { CONFIG }      from './config.js';
@@ -17,7 +15,8 @@ const LS = {
   MULTIPLIER: 'svinkoiny_mult',
   CHARACTER:  'svinkoiny_char',
   NICKNAME:   'svinkoiny_nick',
-  SKINS:      'svinkoiny_skins',   // NEW: purchased skins array
+  NICK_KEY:   'svinkoiny_nick_key',  // нормализованный Firebase-ключ ника
+  SKINS:      'svinkoiny_skins',
 };
 
 function loadInt(key, fallback) {
@@ -46,6 +45,7 @@ export const state = {
   multiplier:     loadInt(LS.MULTIPLIER, CONFIG.INITIAL_MULTIPLIER),
   charId:         localStorage.getItem(LS.CHARACTER) || 'barsuk',
   nickname:       localStorage.getItem(LS.NICKNAME)  || null,
+  nickKey:        localStorage.getItem(LS.NICK_KEY)  || null, // Firebase-ключ (нормализован)
   purchasedSkins: loadSkins(),
 
   get char() { return getCharById(this.charId); },
@@ -81,9 +81,13 @@ export function spendScore(amount) {
   return true;
 }
 
-export function saveNickname(nick) {
+export function saveNickname(nick, normKey) {
   state.nickname = nick;
   localStorage.setItem(LS.NICKNAME, nick);
+  if (normKey !== undefined) {
+    state.nickKey = normKey;
+    localStorage.setItem(LS.NICK_KEY, normKey ?? '');
+  }
 }
 
 /**
