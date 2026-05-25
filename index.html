@@ -20,6 +20,52 @@
 
   <title>Тапалка</title>
 
+  <!-- Telegram WebApp SDK — ОБЯЗАТЕЛЬНО первым скриптом -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- ✅ FIX: Telegram swipe-to-close — вызываем ДО загрузки DOM -->
+  <script>
+    (function () {
+      try {
+        var twa = window.Telegram && window.Telegram.WebApp;
+        if (twa) {
+          twa.ready();
+          twa.expand();
+          // Отключаем вертикальный свайп (доступно с Bot API 7.7+)
+          if (typeof twa.disableVerticalSwipes === 'function') {
+            twa.disableVerticalSwipes();
+          }
+          // Отключаем закрытие через свайп вниз (Bot API 7.6+)
+          if (typeof twa.enableClosingConfirmation === 'function') {
+            // не используем — просто не разрешаем закрытие свайпом
+          }
+          // Устанавливаем цвет заголовка
+          twa.setHeaderColor && twa.setHeaderColor('#000000');
+        }
+      } catch (e) { /* silent — не в Telegram */ }
+
+      // ✅ FIX: Глобальная защита от вертикального свайпа до загрузки JS-модулей.
+      // Блокируем touchmove на документе как можно раньше.
+      // JS-модули доработают логику в _bindEvents.
+      document.addEventListener('touchmove', function (e) {
+        // Разрешаем скролл только внутри явно скроллируемых экранов
+        if (e.target && e.target.closest) {
+          var inScroll = e.target.closest('#upgradeScreen, #leaderboardScreen');
+          if (inScroll) return;
+        }
+        e.preventDefault();
+      }, { passive: false });
+
+      // Блокируем мультитач полностью (pinch zoom, Telegram swipe)
+      document.addEventListener('touchstart', function (e) {
+        if (e.touches.length > 1) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+    }());
+  </script>
+
   <!-- CSS -->
   <link rel="stylesheet" href="./style.css">
 
