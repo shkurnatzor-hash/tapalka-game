@@ -290,6 +290,36 @@
     </div>
 
     <!-- =========================
+         PURCHASE MODAL
+    ========================== -->
+    <div id="purchaseModalOverlay" class="purchase-modal-overlay hidden" aria-modal="true" role="dialog">
+      <div id="purchaseModalBox" class="purchase-modal-box">
+
+        <!-- Игровой иконка персонажа -->
+        <div class="purchase-modal-char-wrap">
+          <img id="purchaseModalImg" class="purchase-modal-char-img" src="" alt="">
+          <div class="purchase-modal-char-glow"></div>
+        </div>
+
+        <h2 id="purchaseModalTitle" class="purchase-modal-title">Купить персонажа?</h2>
+        <p id="purchaseModalText" class="purchase-modal-text"></p>
+
+        <!-- Цена с монеткой -->
+        <div class="purchase-modal-price-row">
+          <img class="purchase-modal-coin" src="./assets/images/govno.png" alt="coin">
+          <span id="purchaseModalPrice" class="purchase-modal-price-num"></span>
+          <span class="purchase-modal-price-label">свинкойнов</span>
+        </div>
+
+        <div class="purchase-modal-btns">
+          <button id="purchaseModalNo" class="purchase-modal-btn purchase-modal-btn--no">Нет</button>
+          <button id="purchaseModalYes" class="purchase-modal-btn purchase-modal-btn--yes">Да, купить!</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- =========================
          MAIN MENU
     ========================== -->
 
