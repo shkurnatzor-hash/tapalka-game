@@ -1,22 +1,29 @@
 /**
- * ui.js — v3 (Skin Purchase System + TAP ANIMATION v2)
+ * ui.js — v4 (New Character Select & Purchase System)
  *
- * ИЗМЕНЕНИЯ v3:
- *  1. buildCharGrid() — полная система покупки/выбора скинов:
- *       - LOCKED: серая карточка + цена + кнопка "🔒 N 🐷"
- *       - OWNED:  кнопка "Выбрать"
- *       - ACTIVE: бейдж "✓ Выбран"
- *  2. _renderCharCards() + refreshCharGridState() — rebuild без перенастройки
- *     listeners на категории
- *  3. _handleBuy() — purchase flow: списание монет, анимация, обновление грида
- *  4. renderCharacter() теперь вызывает refreshCharGridState()
- *  5. Импорт purchaseSkin + playSfx
+ * ИЗМЕНЕНИЯ v4:
+ *  1. Новая механика выбора персонажей:
+ *       - OWNED:  клик по всей карточке сразу выбирает персонажа (без кнопки "Выбрать")
+ *       - LOCKED: клик по карточке открывает purchase modal
+ *       - ACTIVE: карточка подсвечивается accentColor персонажа
+ *  2. Purchase modal вместо inline-кнопки покупки:
+ *       - Текст «Купить [ИМЯ] за [ЦЕНА] свинкойнов?»
+ *       - Кнопки «Да, купить!» / «Нет»
+ *       - Проверка баланса, списание, автовыбор после покупки
+ *  3. SVG игровой замок вместо emoji:
+ *       - Современный, слегка объёмный, с glow-эффектом
+ *       - Idle-анимация пульсации
+ *       - Плавное исчезновение после покупки
+ *  4. Под карточкой: имя + цена / «Куплено»
+ *  5. Тема 'choco' для Тимон и Пумба (светло-коричневый)
  *
- * СОХРАНЕНО из v2:
+ * СОХРАНЕНО без изменений:
  *  - animateTap() ultra-responsive (CSS keyframes + forced reflow)
  *  - playCharVideo() для совместимости
- *  - renderCharacter(), renderCounter(), spawnCoinBurst() без изменений
+ *  - renderCharacter(), renderCounter(), spawnCoinBurst()
  *  - showTab(), renderUpgradeBtn(), showToast(), hideLoader()
+ *  - Nick modal полностью без изменений
+ *  - Все pointer/touch обработчики не тронуты
  */
 
 import { state, purchaseSkin }  from './state.js';
@@ -62,6 +69,16 @@ export function cacheDom() {
   DOM.nickModalSubmit  = document.getElementById('nickModalSubmit');
   DOM.nickModalLabel   = document.getElementById('nickModalSubmitLabel');
   DOM.nickModalSpinner = document.getElementById('nickModalSpinner');
+
+  // Purchase modal
+  DOM.purchaseModalOverlay = document.getElementById('purchaseModalOverlay');
+  DOM.purchaseModalBox     = document.getElementById('purchaseModalBox');
+  DOM.purchaseModalImg     = document.getElementById('purchaseModalImg');
+  DOM.purchaseModalTitle   = document.getElementById('purchaseModalTitle');
+  DOM.purchaseModalText    = document.getElementById('purchaseModalText');
+  DOM.purchaseModalPrice   = document.getElementById('purchaseModalPrice');
+  DOM.purchaseModalYes     = document.getElementById('purchaseModalYes');
+  DOM.purchaseModalNo      = document.getElementById('purchaseModalNo');
 
   // GPU-hint
   if (DOM.characterWrapper) {
@@ -169,9 +186,6 @@ export function showTab(name) {
   const isUpgrade     = name === 'upgrade';
   const isLeaderboard = name === 'leaderboard';
 
-  // Скрываем персонажа и счётчик когда открыт любой экран поверх игры.
-  // visibility: hidden вместо opacity: 0 — элемент не участвует в z-index стекинге
-  // и не "просвечивает" сквозь полупрозрачные overlay-экраны.
   if (DOM.characterWrapper) {
     DOM.characterWrapper.style.opacity       = isGame ? '1' : '0';
     DOM.characterWrapper.style.visibility    = isGame ? 'visible' : 'hidden';
@@ -238,7 +252,7 @@ export function hideLoader() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SKIN PURCHASE SYSTEM
+// SKIN PURCHASE SYSTEM v4
 // ═══════════════════════════════════════════════════════════════════════════════
 
 let _onCharSelectCallback = null;   // callback из game.js (_onCharSelect)
@@ -266,6 +280,9 @@ export function buildCharGrid(onSelect) {
       _filterSkinsByCategory(btn.dataset.cat);
     });
   });
+
+  // Purchase modal — инициализируем кнопки один раз
+  _initPurchaseModal();
 }
 
 /**
@@ -282,11 +299,72 @@ export function refreshCharGridState() {
   _filterSkinsByCategory(activeCat);
 }
 
+// ─── SVG игровой замок ────────────────────────────────────────────────────────
+
+/**
+ * Генерирует SVG игрового замка с glow-эффектом.
+ * Современный, слегка объёмный, в стиле idle/clicker игры.
+ */
+function _makeLockSVG() {
+  return `<svg class="char-lock-svg" viewBox="0 0 44 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <filter id="lockGlow" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <linearGradient id="lockBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%"   stop-color="#f5c842"/>
+        <stop offset="50%"  stop-color="#d4980a"/>
+        <stop offset="100%" stop-color="#a06800"/>
+      </linearGradient>
+      <linearGradient id="lockShine" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#fff" stop-opacity="0.45"/>
+        <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="lockShackleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#ffe066"/>
+        <stop offset="100%" stop-color="#b07a00"/>
+      </linearGradient>
+    </defs>
+    <!-- Дужка замка -->
+    <path
+      d="M10 22 C10 10 34 10 34 22"
+      stroke="url(#lockShackleGrad)"
+      stroke-width="5.5"
+      stroke-linecap="round"
+      fill="none"
+      filter="url(#lockGlow)"
+    />
+    <!-- Тень корпуса -->
+    <rect x="6" y="21" width="32" height="25" rx="6" fill="rgba(0,0,0,0.35)"/>
+    <!-- Корпус замка -->
+    <rect x="5" y="20" width="34" height="25" rx="6" fill="url(#lockBodyGrad)" filter="url(#lockGlow)"/>
+    <!-- Блик -->
+    <rect x="5" y="20" width="34" height="25" rx="6" fill="url(#lockShine)"/>
+    <!-- Замочная скважина — внешний круг -->
+    <circle cx="22" cy="30" r="5" fill="rgba(0,0,0,0.55)"/>
+    <!-- Замочная скважина — прорезь -->
+    <rect x="20" y="32" width="4" height="6" rx="2" fill="rgba(0,0,0,0.55)"/>
+    <!-- Блик на дужке -->
+    <path
+      d="M12 20 C12 12 20 9 22 9"
+      stroke="rgba(255,255,255,0.45)"
+      stroke-width="2"
+      stroke-linecap="round"
+      fill="none"
+    />
+  </svg>`;
+}
+
 // ─── Приватные ────────────────────────────────────────────────────────────────
 
 /**
  * Полный rebuild карточек персонажей.
- * Вызывается при покупке, смене персонажа, открытии вкладки.
+ * Новая механика v4:
+ *  - Owned: вся карточка кликабельна → выбирает персонажа
+ *  - Locked: вся карточка кликабельна → открывает purchase modal
+ *  - Active: border-glow цветом accentColor персонажа
+ *  - Под картинкой: имя + цена / «Куплено»
  */
 function _renderCharCards() {
   if (!DOM.charSelectWrap) return;
@@ -296,13 +374,13 @@ function _renderCharCards() {
     const isPurchased = state.purchasedSkins.includes(char.id);
     const isActive    = state.charId === char.id;
     const price       = char.price ?? 50;
-    const canAfford   = state.score >= price;
+    const accentColor = char.accentColor ?? '#50d460';
 
-    // CSS классы
+    // CSS классы карточки
     const classes = [
       'charChoice',
-      isActive    ? 'charChoice--active' : '',
-      isPurchased ? 'charChoice--owned'  : 'charChoice--locked',
+      isActive    ? 'charChoice--active'   : '',
+      isPurchased ? 'charChoice--owned'    : 'charChoice--locked',
     ].filter(Boolean).join(' ');
 
     const div = document.createElement('div');
@@ -310,78 +388,159 @@ function _renderCharCards() {
     div.dataset.char = char.id;
     div.dataset.cat  = char.category;
 
-    // Action-зона под именем
-    let actionHtml;
+    // Динамическая подсветка активной карточки через inline style
     if (isActive) {
-      actionHtml = `<span class="charChoice-badge charChoice-badge--selected">✓ Выбран</span>`;
-    } else if (isPurchased) {
-      actionHtml = `<button class="charChoice-btn charChoice-btn--select">Выбрать</button>`;
-    } else {
-      const cantClass = canAfford ? '' : 'charChoice-btn--cant-afford';
-      actionHtml = `<button class="charChoice-btn charChoice-btn--buy ${cantClass}">🔒 ${price} 🐷</button>`;
+      div.style.setProperty('--card-accent', accentColor);
+      // Парсим цвет для glow
+      const glowRgb  = _hexToRgba(accentColor, 0.55);
+      const glowRgb2 = _hexToRgba(accentColor, 0.25);
+      div.style.borderColor = accentColor;
+      div.style.boxShadow   = `0 0 0 2px ${accentColor}, 0 0 18px ${glowRgb}, 0 0 36px ${glowRgb2}`;
     }
 
-    // Lock overlay на картинке
-    const lockOverlay = isPurchased
-      ? ''
-      : `<div class="charChoice-lock-overlay">🔒</div>`;
+    // Замок — SVG для незакупленных
+    const lockHtml = isPurchased ? '' : `<div class="char-lock-overlay">${_makeLockSVG()}</div>`;
+
+    // Статус под именем: цена или «Куплено»
+    let statusHtml;
+    if (isPurchased) {
+      statusHtml = `<span class="char-status char-status--owned">✓ Куплено</span>`;
+    } else {
+      statusHtml = `<span class="char-status char-status--price">
+        <img class="char-status-coin" src="./assets/images/govno.png" alt="coin"> ${price}
+      </span>`;
+    }
 
     div.innerHTML = `
       <div class="charChoice-img-wrap">
         <img src="${char.thumbnail}" alt="${char.name}" loading="lazy">
-        ${lockOverlay}
+        ${lockHtml}
       </div>
-      <p>${char.name}</p>
-      <div class="charChoice-actions">${actionHtml}</div>`;
+      <p class="charChoice-name">${char.name}</p>
+      <div class="charChoice-status-wrap">${statusHtml}</div>`;
 
-    // Events
-    const btn = div.querySelector('.charChoice-btn');
-    if (btn) {
-      if (btn.classList.contains('charChoice-btn--select')) {
-        btn.addEventListener('click', () => _onCharSelectCallback?.(char.id));
-      } else if (btn.classList.contains('charChoice-btn--buy')) {
-        btn.addEventListener('click', () => _handleBuy(char));
+    // ── Events: вся карточка кликабельна ──
+    div.addEventListener('click', () => {
+      if (isPurchased) {
+        // Уже куплен — просто выбираем
+        _onCharSelectCallback?.(char.id);
+      } else {
+        // Не куплен — открываем purchase modal
+        _openPurchaseModal(char);
       }
-    }
+    });
 
     DOM.charSelectWrap.appendChild(div);
   });
 }
 
+// ─── Purchase Modal ────────────────────────────────────────────────────────────
+
+let _purchaseTarget = null; // char object который хотим купить
+
+function _initPurchaseModal() {
+  if (!DOM.purchaseModalYes || !DOM.purchaseModalNo) return;
+
+  DOM.purchaseModalYes.addEventListener('click', _onPurchaseConfirm);
+  DOM.purchaseModalNo.addEventListener('click',  _closePurchaseModal);
+
+  // Клик на overlay (вне box) — закрыть
+  DOM.purchaseModalOverlay?.addEventListener('click', (e) => {
+    if (e.target === DOM.purchaseModalOverlay) _closePurchaseModal();
+  });
+}
+
 /**
- * Обработка покупки скина.
+ * Открыть modal подтверждения покупки.
  */
-function _handleBuy(char) {
+function _openPurchaseModal(char) {
+  _purchaseTarget = char;
+
+  // Заполняем modal
+  if (DOM.purchaseModalImg) {
+    DOM.purchaseModalImg.src = char.thumbnail;
+    DOM.purchaseModalImg.alt = char.name;
+  }
+  if (DOM.purchaseModalText) {
+    DOM.purchaseModalText.textContent = `Вы хотите купить персонажа ${char.name}?`;
+  }
+  if (DOM.purchaseModalPrice) {
+    DOM.purchaseModalPrice.textContent = (char.price ?? 50).toLocaleString('ru-RU');
+  }
+
+  // Показываем с анимацией
+  const overlay = DOM.purchaseModalOverlay;
+  const box     = DOM.purchaseModalBox;
+  if (!overlay || !box) return;
+
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      overlay.classList.add('purchase-modal--visible');
+      box.classList.add('purchase-modal-box--visible');
+    });
+  });
+}
+
+function _closePurchaseModal() {
+  const overlay = DOM.purchaseModalOverlay;
+  const box     = DOM.purchaseModalBox;
+  if (!overlay) return;
+
+  overlay.classList.remove('purchase-modal--visible');
+  box?.classList.remove('purchase-modal-box--visible');
+
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    _purchaseTarget = null;
+  }, 280);
+}
+
+function _onPurchaseConfirm() {
+  const char = _purchaseTarget;
+  if (!char) return;
+
   const price = char.price ?? 50;
 
+  // Проверка баланса
   if (state.score < price) {
-    showToast(`Нужно ещё ${price - state.score} 🐷 для покупки!`);
+    showToast('Недостаточно свинкойнов! 🐷');
+    _closePurchaseModal();
     return;
   }
 
+  // Покупка
   const ok = purchaseSkin(char.id);
 
   if (ok) {
-    // Анимация на карточке
-    const card = DOM.charSelectWrap?.querySelector(`[data-char="${char.id}"]`);
-    if (card) {
-      card.classList.add('charChoice--buy-anim');
-      setTimeout(() => card.classList.remove('charChoice--buy-anim'), 350);
-    }
+    _closePurchaseModal();
 
     // Обновляем счётчик монет
     renderCounter();
 
+    // Автоматически выбираем купленного персонажа
+    _onCharSelectCallback?.(char.id);
+
+    // Анимация на карточке
+    setTimeout(() => {
+      const card = DOM.charSelectWrap?.querySelector(`[data-char="${char.id}"]`);
+      if (card) {
+        card.classList.add('charChoice--buy-anim');
+        setTimeout(() => card.classList.remove('charChoice--buy-anim'), 350);
+      }
+    }, 100);
+
     // Звук и тост
     playSfx('./assets/sounds/rankup.mp3');
-    showToast(`🎉 Куплен: ${char.name}!`);
+    showToast(`🎉 Персонаж куплен: ${char.name}!`);
 
-    // Rebuild карточек с новым состоянием
+    // Rebuild грида с новым состоянием
     const activeCat = document.querySelector('.skinCatBtn.active')?.dataset.cat ?? 'proskurin';
     _renderCharCards();
     _filterSkinsByCategory(activeCat);
   } else {
-    showToast(`Нужно ${price} 🐷 для покупки!`);
+    showToast('Недостаточно свинкойнов! 🐷');
+    _closePurchaseModal();
   }
 }
 
@@ -397,6 +556,21 @@ function _filterSkinsByCategory(cat) {
   });
 
   DOM.skinPlaceholder.classList.toggle('hidden', visibleCount > 0);
+}
+
+// ─── Утилиты ──────────────────────────────────────────────────────────────────
+
+/**
+ * HEX → rgba(r,g,b,a) строка.
+ * Поддерживает #RGB и #RRGGBB.
+ */
+function _hexToRgba(hex, alpha) {
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+  const r = parseInt(c.substring(0,2), 16);
+  const g = parseInt(c.substring(2,4), 16);
+  const b = parseInt(c.substring(4,6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function _setBackground(bgPath) {
@@ -449,15 +623,8 @@ function _applyEffects(effects) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LEADERBOARD PROFILE BLOCK
-// Показывает текущий ник игрока или предложение зарегистрироваться.
-// Рендерится в #lbProfileBlock каждый раз при открытии leaderboard.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Обновить блок профиля в leaderboard screen.
- * Если ник есть — показываем его + кнопку смены.
- * Если нет — кнопку регистрации.
- */
 export function updateLbProfileUI() {
   const el = DOM.lbProfileBlock;
   if (!el) return;
@@ -499,32 +666,24 @@ function _escHtml(str) {
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// NICK MODAL
-// Красивое модальное окно выбора/смены ника с анимацией и валидацией.
+// NICK MODAL — БЕЗ ИЗМЕНЕНИЙ
 // ═══════════════════════════════════════════════════════════════════════════════
 
 let _nickSubmitCallback = null;
 let _nickModalOpen = false;
 
-/**
- * Открыть модальное окно выбора/смены ника.
- * @param {string|null} currentNick  — текущий ник (null = первая регистрация)
- * @param {Function}    onSubmit     — async callback(rawNick) → { ok, error? }
- */
 export function showNickModal(currentNick, onSubmit) {
   if (_nickModalOpen) return;
   _nickSubmitCallback = onSubmit;
 
   const isChange = !!currentNick;
 
-  // Настраиваем заголовок
   if (DOM.nickModalTitle)    DOM.nickModalTitle.textContent    = isChange ? 'Сменить ник' : 'Выбери ник';
   if (DOM.nickModalSubtitle) DOM.nickModalSubtitle.textContent = isChange
     ? `Текущий ник: ${currentNick}`
     : 'Ник виден всем в рейтинге';
   if (DOM.nickModalLabel)    DOM.nickModalLabel.textContent    = isChange ? 'Сменить' : 'Сохранить';
 
-  // Сбрасываем поле и ошибку
   if (DOM.nickModalInput) {
     DOM.nickModalInput.value = '';
     DOM.nickModalInput.disabled = false;
@@ -533,13 +692,11 @@ export function showNickModal(currentNick, onSubmit) {
   _setModalError(null);
   _setModalLoading(false);
 
-  // Показываем overlay с анимацией
   const overlay = DOM.nickModalOverlay;
   const box     = DOM.nickModalBox;
   if (!overlay || !box) return;
 
   overlay.classList.remove('hidden');
-  // Небольшой delay чтобы CSS transition сработал после display:block
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       overlay.classList.add('nick-modal--visible');
@@ -549,13 +706,9 @@ export function showNickModal(currentNick, onSubmit) {
 
   _nickModalOpen = true;
 
-  // Закрытие по крестику
   DOM.nickModalClose?.addEventListener('click', _closeNickModal, { once: true });
-  // Закрытие по клику на overlay (не на box)
   overlay.addEventListener('click', _onOverlayClick);
-  // Enter в поле = submit
   DOM.nickModalInput?.addEventListener('keydown', _onModalKeydown);
-  // Кнопка submit
   DOM.nickModalSubmit?.addEventListener('click', _onModalSubmit, { once: false });
 }
 
@@ -568,7 +721,6 @@ function _onModalKeydown(e) {
     e.preventDefault();
     _onModalSubmit();
   }
-  // Esc
   if (e.key === 'Escape') _closeNickModal();
 }
 
@@ -609,7 +761,6 @@ function _closeNickModal() {
     _nickModalOpen = false;
   }, 280);
 
-  // Убираем все listeners
   overlay.removeEventListener('click', _onOverlayClick);
   DOM.nickModalInput?.removeEventListener('keydown', _onModalKeydown);
   DOM.nickModalSubmit?.removeEventListener('click', _onModalSubmit);
