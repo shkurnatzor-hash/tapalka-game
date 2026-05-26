@@ -1,8 +1,8 @@
 /**
  * characters.js
- * UPDATED v3:
- *  - Тема персонажа «Тимон и Пумба» изменена с 'jungle' → 'choco'
- *    (молочно-шоколадная палитра, тёплые коричневые тона)
+ * UPDATED v4:
+ *  - Добавлено поле `accentColor` для подсветки активной карточки персонажа
+ *  - Тема 'choco' (Тимон и Пумба): светло-коричневый / молочный шоколад
  *
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 💰 ЦЕНЫ ПЕРСОНАЖЕЙ
@@ -47,7 +47,14 @@
  * 'grey'    → серая (saygak)
  * 'darkgrey'→ тёмно-серая (boroda)
  * 'rasta'   → раста (rastamaks)
- * 'choco'   → молочный шоколад (timon) ← НОВАЯ
+ * 'choco'   → молочный шоколад (timon)
+ *
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 🌟 accentColor — цвет подсветки активной карточки
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *
+ * Используется для border-glow выбранного персонажа в гриде скинов.
+ * Если не задан — используется дефолтный зелёный (#50d460).
  */
 
 export const CHARACTERS = [
@@ -58,6 +65,7 @@ export const CHARACTERS = [
     name: 'Барсук',
     category: 'proskurin',
     price: 0,              // БЕСПЛАТНО — разблокирован по умолчанию
+    accentColor: '#50d460',
     type: 'image',
     src: './assets/images/obichni.png',
     pressSrc: './assets/images/jmy.png',
@@ -77,6 +85,7 @@ export const CHARACTERS = [
     name: 'Максвин',
     category: 'proskurin',
     price: 67,
+    accentColor: '#50d460',
     type: 'image',
     src: './assets/images/maksvin.png',
     pressSrc: null,
@@ -94,6 +103,7 @@ export const CHARACTERS = [
     name: 'Демомакс',
     category: 'proskurin',
     price: 52,
+    accentColor: '#e74c3c',
     type: 'image',
     src: './assets/images/demomaks.png',
     pressSrc: null,
@@ -111,6 +121,7 @@ export const CHARACTERS = [
     name: 'Котомакс',
     category: 'proskurin',
     price: 67,
+    accentColor: '#c9956c',
     type: 'image',
     src: './assets/images/KOTOMAKS.png',
     pressSrc: null,
@@ -128,6 +139,7 @@ export const CHARACTERS = [
     name: 'Растамакс',
     category: 'proskurin',
     price: 52,
+    accentColor: '#ffd700',
     type: 'image',
     src: './assets/images/rast.png',
     pressSrc: './assets/images/rast2.png',
@@ -146,6 +158,7 @@ export const CHARACTERS = [
     name: 'Таджик',
     category: 'proskurin',
     price: 50,
+    accentColor: '#ff6a00',
     type: 'image',
     src: './assets/images/zima.png',
     pressSrc: './assets/images/zima2.png',
@@ -165,6 +178,7 @@ export const CHARACTERS = [
     name: 'Панин',
     category: 'panin',
     price: 67,
+    accentColor: '#50d460',
     type: 'image',
     src: './assets/images/panin1.png',
     pressSrc: null,
@@ -183,6 +197,7 @@ export const CHARACTERS = [
     name: 'Тимон и Пумба',
     category: 'panin',
     price: 50,
+    accentColor: '#C89B6D',
     type: 'image',
     src: './assets/images/tim.png',
     pressSrc: null,
@@ -190,7 +205,7 @@ export const CHARACTERS = [
     music: './assets/sounds/pyk.mp3',
     background: './assets/images/pysto.jpg',
     scale: 1.0,
-    theme: 'choco',           // ← ИЗМЕНЕНО: jungle → choco
+    theme: 'choco',
     effects: { fireCounter: false, fireMenu: false }
   },
 
@@ -200,6 +215,7 @@ export const CHARACTERS = [
     name: 'Сайгак',
     category: 'saygak',
     price: 67,
+    accentColor: '#888888',
     type: 'image',
     src: './assets/images/barbara.png',
     pressSrc: null,
@@ -218,6 +234,7 @@ export const CHARACTERS = [
     name: 'Бородач',
     category: 'saygak',
     price: 52,
+    accentColor: '#666666',
     type: 'image',
     src: './assets/images/boroda.png',
     pressSrc: null,
